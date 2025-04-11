@@ -66,5 +66,9 @@ USER postgres
 # Expose Postgres port
 EXPOSE 5432
 
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD pg_isready -U postgres -d $POSTGRES_DB
+
 # Default command
 CMD ["/usr/lib/postgresql/15/bin/postgres", "-D", "/var/lib/postgresql/data"]
