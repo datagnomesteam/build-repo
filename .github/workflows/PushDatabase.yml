@@ -32,7 +32,6 @@ jobs:
           driver-opts: |
             network=host
             image=moby/buildkit:master
-            memory=7g
 
       - name: Retrieve Docker Credentials
         id: retrieve-credentials
@@ -60,8 +59,6 @@ jobs:
           tags: ${{ env.MAIN_REPO_NAME }}:prepare
           secrets: |
             dataset_url=${{ secrets.DATASET_URL }}
-          build-args: |
-            MEMORY_LIMIT=12G
           cache-from: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache
           cache-to: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache,mode=max
 
@@ -122,7 +119,6 @@ jobs:
           driver-opts: |
             network=host
             image=moby/buildkit:master
-            memory=12g
 
       - name: Restore prepared database
         uses: actions/cache@v4
