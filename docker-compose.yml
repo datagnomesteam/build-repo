@@ -23,7 +23,7 @@ services:
   db:
     build:
       context: ./db
-      dockerfile: Dockerfile.local
+      dockerfile: Dockerfile
     container_name: db
     shm_size: "2gb"
     deploy:
@@ -38,12 +38,13 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_NAME=datastore
-      - DB_USER=server
-      - DB_PASSWORD=server
+      - DB_USER=chris
+      - DB_PASSWORD=chris
       - MEMORY_LIMIT=4G
     networks:
       - app_network
     restart: unless-stopped
+
 
 networks:
   app_network:

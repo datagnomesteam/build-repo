@@ -34,7 +34,7 @@ RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
     psql -d $POSTGRES_DB -c "CREATE USER willbaldwin WITH SUPERUSER PASSWORD 'willbaldwin';" && \
     zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | psql --set ON_ERROR_STOP=1 && \
     /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop && \
-    rm -rf /tmp/pg.zst
+    rm /tmp/pg.zst
 
 # Expose Postgres port (optional)
 EXPOSE 5432
