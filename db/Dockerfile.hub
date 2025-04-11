@@ -33,6 +33,7 @@ RUN echo "host all all 0.0.0.0/0 trust" >> $PGDATA/pg_hba.conf && \
 RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
     createdb $POSTGRES_DB && \
     psql -d $POSTGRES_DB -c "CREATE USER chris WITH SUPERUSER PASSWORD 'chris';" && \
+    psql -d $POSTGRES_DB -c "CREATE USER willbaldwin WITH SUPERUSER PASSWORD 'willbaldwin';" && \
     zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | psql --set ON_ERROR_STOP=1 && \
     /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop
 
