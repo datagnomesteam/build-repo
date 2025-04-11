@@ -98,7 +98,7 @@ jobs:
           load: true
           tags: ${{ env.MAIN_REPO_NAME }}:prepare
           secrets: |
-            dataset_url=${{ secrets.DATASET_URL }}
+            dataset_url=${{ secrets.DATASET_URL_SLIM }}
           cache-from: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache
           cache-to: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache,mode=max
 
