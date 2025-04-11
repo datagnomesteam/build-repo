@@ -84,33 +84,20 @@ jobs:
             image=moby/buildkit:master
             memory=6g
 
-      - name: Retrieve Docker Credentials
-        id: retrieve-credentials
-        run: |
-          echo "Retrieving Docker credentials..."
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" > docker-credentials.txt
-          chmod 600 docker-credentials.txt
-
       - name: Log in to Docker Hub
-        run: |
-          echo "Logging in to Docker Hub..."
-          docker_username=${{ env.DOCKERHUB_USERNAME }}
-          docker_password=$(cat docker-credentials.txt)
-          echo "::add-mask::$docker_password"
-          echo "$docker_password" | sudo docker login -u "$docker_username" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Clean up old Docker images on Docker Hub
         run: |
           echo "Attempting to remove 'latest' tag from Docker Hub..."
-          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\": \"${{ env.DOCKERHUB_USERNAME }}\", \"password\": \"$(cat docker-credentials.txt)\"}" https://hub.docker.com/v2/users/login/ | jq -r .token)
-          if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-            echo "Failed to get Docker Hub token."
-          else
-            DELETE_STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/")
-            echo "Delete request for 'latest' tag sent. Status code: $DELETE_STATUS_CODE"
-            if [ "$DELETE_STATUS_CODE" -ne 204 ] && [ "$DELETE_STATUS_CODE" -ne 404 ]; then
-              echo "Warning: Failed to delete 'latest' tag (Status: $DELETE_STATUS_CODE). It might not exist or there was an error."
-            fi
+          TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
+          DELETE_STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/")
+          echo "Delete request for 'latest' tag sent. Status code: $DELETE_STATUS_CODE"
+          if [ "$DELETE_STATUS_CODE" -ne 204 ] && [ "$DELETE_STATUS_CODE" -ne 404 ]; then
+            echo "Warning: Failed to delete 'latest' tag (Status: $DELETE_STATUS_CODE). It might not exist or there was an error."
           fi
 
       - name: Build and push final image
@@ -137,9 +124,6 @@ jobs:
       - name: Cleanups
         if: always()
         run: |
-          if [ -f docker-credentials.txt ]; then
-            rm -f docker-credentials.txt
-          fi
           sudo docker system prune -af --volumes || true
           sudo docker builder prune -af || true
           sudo docker image prune -af || true
