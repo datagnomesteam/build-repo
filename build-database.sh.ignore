@@ -1,0 +1,172 @@
+#!/bin/bash
+
+#
+
+# Exit on error
+set -e
+
+# Configuration
+DOCKERHUB_USERNAME="datagnomesteam"
+MAIN_REPO_NAME="datagnomesteam/project_database"
+DOCKERFILE_PATH="./db"
+MEMORY_LIMIT="6G"
+BUILDKIT_MEMORY="8g"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print status messages
+print_status() {
+    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+}
+
+# Function to print error messages
+print_error() {
+    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
+}
+
+# Function to print warning messages
+print_warning() {
+    echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
+}
+
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check required commands
+for cmd in docker jq curl; do
+    if ! command_exists "$cmd"; then
+        print_error "$cmd is required but not installed"
+        exit 1
+    fi
+done
+
+# Check if secrets file exists
+if [ ! -f ".secrets" ]; then
+    print_error ".secrets file not found. Please create it with DOCKERHUB_TOKEN and DATASET_URL"
+    exit 1
+fi
+
+# Load secrets
+source .secrets
+
+# Function to clean up
+cleanup() {
+    print_status "Cleaning up..."
+    if [ -f "docker-credentials.txt" ]; then
+        rm -f docker-credentials.txt
+    fi
+    if [ -f "prepared_db.tar.gz" ]; then
+        rm -f prepared_db.tar.gz
+    fi
+    docker system prune -af --volumes || true
+    docker builder prune -af || true
+    docker image prune -af || true
+}
+
+# Function to handle errors
+handle_error() {
+    print_error "An error occurred on line $1"
+    cleanup
+    exit 1
+}
+
+# Set up error handling
+trap 'handle_error $LINENO' ERR
+
+# Function to prepare database
+prepare_database() {
+    print_status "Starting database preparation..."
+    
+    # Set up Docker Buildx
+    print_status "Setting up Docker Buildx..."
+    docker buildx create --use --driver-opt network=host,image=moby/buildkit:master,memory=$BUILDKIT_MEMORY || true
+    
+    # Login to Docker Hub
+    print_status "Logging in to Docker Hub..."
+    echo "$DOCKERHUB_TOKEN" > docker-credentials.txt
+    chmod 600 docker-credentials.txt
+    echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+    
+    # Build and prepare database
+    print_status "Building and preparing database..."
+    docker buildx build \
+        --target prepare \
+        --load \
+        --tag "$MAIN_REPO_NAME:prepare" \
+        --secret id=dataset_url,env=DATASET_URL \
+        --build-arg MEMORY_LIMIT=$MEMORY_LIMIT \
+        --cache-from type=registry,ref=$MAIN_REPO_NAME:prepare-cache \
+        --cache-to type=registry,ref=$MAIN_REPO_NAME:prepare-cache,mode=max \
+        -f "$DOCKERFILE_PATH/Dockerfile.hub" \
+        "$DOCKERFILE_PATH"
+    
+    # Save prepared database
+    print_status "Saving prepared database..."
+    docker save "$MAIN_REPO_NAME:prepare" | gzip > prepared_db.tar.gz
+    
+    cleanup
+}
+
+# Function to build and push final image
+build_and_push() {
+    print_status "Starting final build and push..."
+    
+    # Set up Docker Buildx
+    print_status "Setting up Docker Buildx..."
+    docker buildx create --use --driver-opt network=host,image=moby/buildkit:master,memory=$BUILDKIT_MEMORY || true
+    
+    # Load prepared database
+    print_status "Loading prepared database..."
+    gunzip -c prepared_db.tar.gz | docker load
+    
+    # Login to Docker Hub
+    print_status "Logging in to Docker Hub..."
+    echo "$DOCKERHUB_TOKEN" > docker-credentials.txt
+    chmod 600 docker-credentials.txt
+    echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+    
+    # Clean up old Docker images
+    print_status "Cleaning up old Docker images..."
+    TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\": \"$DOCKERHUB_USERNAME\", \"password\": \"$DOCKERHUB_TOKEN\"}" https://hub.docker.com/v2/users/login/ | jq -r .token)
+    curl -s -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/$MAIN_REPO_NAME/tags/latest/"
+    
+    # Build and push final image
+    print_status "Building and pushing final image..."
+    docker buildx build \
+        --platform linux/amd64 \
+        --push \
+        --tag "$MAIN_REPO_NAME:latest" \
+        --output type=image,compression=zstd,compression-level=19 \
+        --cache-from type=registry,ref=$MAIN_REPO_NAME:buildcache \
+        --cache-to type=registry,ref=$MAIN_REPO_NAME:buildcache,mode=max \
+        -f "$DOCKERFILE_PATH/Dockerfile.hub" \
+        "$DOCKERFILE_PATH"
+    
+    cleanup
+}
+
+# Main execution
+case "$1" in
+    "prepare")
+        prepare_database
+        ;;
+    "build")
+        build_and_push
+        ;;
+    "all")
+        prepare_database
+        build_and_push
+        ;;
+    *)
+        echo "Usage: $0 {prepare|build|all}"
+        exit 1
+        ;;
+esac
+
+print_status "Operation completed successfully!" 
