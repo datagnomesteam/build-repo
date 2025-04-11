@@ -55,7 +55,8 @@ jobs:
             jq \
             gzip \
             tar \
-            qemu-user-static
+            qemu-user-static \
+            aria2
 
       - name: Install Docker
         run: |
@@ -69,6 +70,11 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download dataset
+        run: |
+          mkdir -p ${{ env.DOCKERFILE_PATH }}
+          aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --check-certificate=false --max-tries=50 --retry-wait=5 --allow-overwrite=true --auto-file-renaming=false "${{ secrets.DATASET_URL_SLIM }}" -o ${{ env.DOCKERFILE_PATH }}/pg.zst
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -103,7 +109,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.DOCKERFILE_PATH }}
-          file: ${{ env.DOCKERFILE_PATH }}/Dockerfile.hub
+          file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
           platforms: ${{ env.PLATFORM }}
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest

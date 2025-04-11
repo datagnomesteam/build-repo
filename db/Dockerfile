@@ -10,13 +10,12 @@ RUN apt-get update && \
 # Environment variables
 ENV PGDATA=/var/lib/postgresql/data
 ENV POSTGRES_DB=datastore
-ENV MEMORY_LIMIT=4G
 
 # Create database directory
 RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
 
 # Copy or download dump
-COPY ./pg_slim.zst /tmp/pg.zst
+COPY ./pg.zst /tmp/pg.zst
 RUN chmod -R 777 /tmp
 
 # Use postgres user
@@ -34,15 +33,10 @@ RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
     psql -d $POSTGRES_DB -c "CREATE USER chris WITH SUPERUSER PASSWORD 'chris';" && \
     psql -d $POSTGRES_DB -c "CREATE USER willbaldwin WITH SUPERUSER PASSWORD 'willbaldwin';" && \
     zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | pv -s $(zstd -l /tmp/pg.zst | grep "Decompressed" | awk '{print $3}') | psql --set ON_ERROR_STOP=1 && \
-    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop
-
-# Back to root user
-#USER root
+    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop && rm /tmp/pg.zst
 
 # Expose Postgres port (optional)
 EXPOSE 5432
-
-RUN rm /tmp/pg.zst
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
