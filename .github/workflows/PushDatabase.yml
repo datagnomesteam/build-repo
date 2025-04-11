@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - docker-*
     paths:
       - 'db/**'
       - '!db/Dockerfile.local'
@@ -117,7 +116,7 @@ jobs:
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
-          token: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.MAIN_REPO_NAME }}
           readme-filepath: ./README.md
 
