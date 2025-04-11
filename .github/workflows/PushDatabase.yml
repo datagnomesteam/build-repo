@@ -12,127 +12,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  prepare-database:
-    timeout-minutes: 60
-    runs-on: ubuntu-22.04
-    env:
-      DOCKERHUB_USERNAME: datagnomesteam
-      MAIN_REPO_NAME: datagnomesteam/project_database
-      DOCKERFILE_PATH: ${{ github.workspace }}/db
-      DOCKER_BUILDKIT: 1
-      BUILDKIT_INLINE_CACHE: 1
-      ACTIONS_STEP_DEBUG: true
-      ACTIONS_RUNNER_DEBUG: true
-
-    steps:
-      - name: Check initial disk space
-        run: df -h
-
-      - name: Maximize build space
-        run: |
-          echo "Removing large packages to maximize disk space..."
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/lib/jvm || true
-          sudo rm -rf /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
-          sudo docker image prune --all --force || true
-          sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^aspnetcore-.*' '^mysql-.*' '^php.*' azure-cli google-cloud-cli hhvm google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
-          sudo apt-get autoremove -y || true
-          sudo apt-get clean || true
-          echo "Disk space after cleanup:"
-          df -h
-
-      - name: Install essential packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ca-certificates \
-            curl \
-            gnupg \
-            lsb-release \
-            jq \
-            gzip \
-            tar
-
-      - name: Install Docker
-        run: |
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            network=host
-            image=moby/buildkit:master
-            memory=6g
-
-      - name: Retrieve Docker Credentials
-        id: retrieve-credentials
-        run: |
-          echo "Retrieving Docker credentials..."
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" > docker-credentials.txt
-          chmod 600 docker-credentials.txt
-
-      - name: Log in to Docker Hub
-        run: |
-          echo "Logging in to Docker Hub..."
-          docker_username=${{ env.DOCKERHUB_USERNAME }}
-          docker_password=$(cat docker-credentials.txt)
-          echo "::add-mask::$docker_password"
-          echo "$docker_password" | sudo docker login -u "$docker_username" --password-stdin
-
-      - name: Download and prepare database
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ env.DOCKERFILE_PATH }}
-          file: ${{ env.DOCKERFILE_PATH }}/Dockerfile.hub
-          target: prepare
-          push: false
-          load: true
-          tags: ${{ env.MAIN_REPO_NAME }}:prepare
-          secrets: |
-            dataset_url=${{ secrets.DATASET_URL_SLIM }}
-          cache-from: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache
-          cache-to: type=registry,ref=${{ env.MAIN_REPO_NAME }}:prepare-cache,mode=max
-
-      - name: Save prepared database
-        run: |
-          sudo docker save ${{ env.MAIN_REPO_NAME }}:prepare | gzip > prepared_db.tar.gz
-          sudo docker system prune -af --volumes || true
-
-      - name: Cache prepared database
-        uses: actions/cache@v4
-        with:
-          path: prepared_db.tar.gz
-          key: prepared-db-${{ github.run_id }}
-          restore-keys: |
-            prepared-db-
-
-      - name: Cleanups
-        if: always()
-        run: |
-          if [ -f docker-credentials.txt ]; then
-            rm -f docker-credentials.txt
-          fi
-          if [ -f prepared_db.tar.gz ]; then
-            rm -f prepared_db.tar.gz
-          fi
-          sudo docker system prune -af --volumes || true
-          sudo docker builder prune -af || true
-          sudo docker image prune -af || true
-          echo "Final disk space:"
-          df -h
-
   build-and-push:
-    needs: prepare-database
-    timeout-minutes: 30
+    timeout-minutes: 60
     runs-on: ubuntu-22.04
     env:
       DOCKERHUB_USERNAME: datagnomesteam
@@ -141,10 +22,12 @@ jobs:
       PLATFORM: ${{ matrix.platform }}
       DOCKER_BUILDKIT: 1
       BUILDKIT_INLINE_CACHE: 1
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
 
     strategy:
       matrix:
-        platform: [linux/amd64]
+        platform: [linux/amd64, linux/arm64]
 
     steps:
       - name: Check initial disk space
@@ -173,7 +56,7 @@ jobs:
             jq \
             gzip \
             tar \
-            qemu-user-static # Needed for multi-platform builds
+            qemu-user-static
 
       - name: Install Docker
         run: |
@@ -201,27 +84,6 @@ jobs:
             image=moby/buildkit:master
             memory=6g
 
-      - name: Restore prepared database
-        uses: actions/cache@v4
-        with:
-          path: prepared_db.tar.gz
-          # Adjust key to use the correct run_id from the 'prepare-database' job
-          # This requires prepare-database job to output its run_id
-          key: prepared-db-${{ needs.prepare-database.outputs.run_id || github.run_id }} # Fallback needed if output not set
-          # Potential issue: Cache key might need adjustment depending on how prepare-database outputs its ID.
-
-      - name: Load prepared database
-        run: |
-          if [ -f prepared_db.tar.gz ]; then
-            gunzip -c prepared_db.tar.gz | sudo docker load
-            rm -f prepared_db.tar.gz
-          else
-            echo "Prepared database cache not found."
-            # Optionally fail the job here if the cache is mandatory
-            # exit 1
-          fi
-          df -h
-
       - name: Retrieve Docker Credentials
         id: retrieve-credentials
         run: |
@@ -243,7 +105,6 @@ jobs:
           TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\": \"${{ env.DOCKERHUB_USERNAME }}\", \"password\": \"$(cat docker-credentials.txt)\"}" https://hub.docker.com/v2/users/login/ | jq -r .token)
           if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
             echo "Failed to get Docker Hub token."
-            # Decide whether to fail or continue
           else
             DELETE_STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/")
             echo "Delete request for 'latest' tag sent. Status code: $DELETE_STATUS_CODE"
@@ -261,13 +122,7 @@ jobs:
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
           outputs: type=image,compression=zstd,compression-level=19
-          # Load the prepare image as build context/cache if needed by Dockerfile.hub
-          # This assumes Dockerfile.hub uses --cache-from or similar
-          # Might need adjustment based on Dockerfile.hub content
-          cache-from: |
-            type=registry,ref=${{ env.MAIN_REPO_NAME }}:buildcache
-            type=local,src=prepared_db.tar.gz
-            type=docker,ref=${{ env.MAIN_REPO_NAME }}:prepare
+          cache-from: type=registry,ref=${{ env.MAIN_REPO_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.MAIN_REPO_NAME }}:buildcache,mode=max
 
       - name: Update repo description
@@ -275,20 +130,15 @@ jobs:
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
-          # Using token instead of password if available and preferred
-          # password: ${{ secrets.DOCKERHUB_PASSWORD }} # Original
-          token: ${{ secrets.DOCKERHUB_TOKEN }} # Assumes DOCKERHUB_TOKEN can be used
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.MAIN_REPO_NAME }}
-          readme-filepath: ./README.md # Assuming README.md is in the root
+          readme-filepath: ./README.md
 
       - name: Cleanups
         if: always()
         run: |
           if [ -f docker-credentials.txt ]; then
             rm -f docker-credentials.txt
-          fi
-          if [ -f prepared_db.tar.gz ]; then
-            rm -f prepared_db.tar.gz # Should have been removed by load step, but just in case
           fi
           sudo docker system prune -af --volumes || true
           sudo docker builder prune -af || true
