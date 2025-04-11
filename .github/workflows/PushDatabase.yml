@@ -121,7 +121,6 @@ jobs:
           platforms: ${{ env.PLATFORM }}
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
-          outputs: type=image,compression=zstd,compression-level=19
           provenance: false
           secrets: |
             dataset_url=${{ secrets.DATASET_URL_SLIM }}
