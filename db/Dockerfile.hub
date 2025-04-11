@@ -1,12 +1,11 @@
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 # Install PostgreSQL 15
 RUN apt-get update && \
-    apt-get install -y postgresql-15 postgresql-client-15 && \
+    apt-get install -y postgresql-15 postgresql-client-15 pv zstd aria2&& \
     apt-get autoremove -y && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/*
-
 
 # Environment variables
 ENV PGDATA=/var/lib/postgresql/data
