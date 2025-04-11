@@ -1,0 +1,35 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install Java for PySpark, dos2unix for line ending conversion, and other utilities
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    default-jre \
+    procps \
+    curl \
+    dos2unix \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Java home for PySpark - use a more portable way to find Java
+RUN echo "export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))" >> ~/.bashrc
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pyspark==3.4.1
+
+# Copy application code
+COPY . .
+
+# Convert line endings to Unix format (important for scripts when developed on Windows)
+RUN dos2unix /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Expose ports for FastAPI and Streamlit
+EXPOSE 8000 8501
+
+# Run both services with the entrypoint script
+CMD ["/app/entrypoint.sh"] 

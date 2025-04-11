@@ -1,0 +1,69 @@
+FROM debian:bookworm-slim AS prepare
+
+# Install PostgreSQL 15, zstd, aria2, and other tools
+RUN apt-get update && \
+    apt-get install -y postgresql-15 postgresql-client-15 zstd aria2 && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Environment variables
+ENV PGDATA=/var/lib/postgresql/data
+ENV POSTGRES_DB=datastore
+
+# Create database directory
+RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
+
+# Copy or download dump
+RUN --mount=type=secret,id=dataset_url \
+    mkdir -p /tmp && \
+    aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --check-certificate=false --max-tries=50 --retry-wait=5 --allow-overwrite=true --auto-file-renaming=false "$(cat /run/secrets/dataset_url)" -o /tmp/pg.zst; \
+    chmod -R 777 /tmp && apt-get remove -y aria2 && apt-get autoremove -y && apt-get autoclean
+
+# Use postgres user
+USER postgres
+
+# Initialize PostgreSQL
+RUN /usr/lib/postgresql/15/bin/initdb -D $PGDATA
+
+RUN echo "host all all 0.0.0.0/0 trust" >> $PGDATA/pg_hba.conf && \
+    echo "local all all trust" >> $PGDATA/pg_hba.conf
+
+# Start temporary server, import data, then stop server
+RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
+    createdb $POSTGRES_DB && \
+    psql -d $POSTGRES_DB -c "CREATE USER chris WITH SUPERUSER PASSWORD 'chris';" && \
+    zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | psql --set ON_ERROR_STOP=1 && \
+    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop
+
+# Clean up
+RUN rm /tmp/pg.zst
+
+# Final stage
+FROM debian:bookworm-slim
+
+# Install PostgreSQL 15
+RUN apt-get update && \
+    apt-get install -y postgresql-15 postgresql-client-15 && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Environment variables
+ENV PGDATA=/var/lib/postgresql/data
+ENV POSTGRES_DB=datastore
+
+# Copy prepared database from previous stage
+COPY --from=prepare $PGDATA $PGDATA
+
+# Create database directory and set permissions
+RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
+
+# Use postgres user
+USER postgres
+
+# Expose Postgres port
+EXPOSE 5432
+
+# Default command
+CMD ["/usr/lib/postgresql/15/bin/postgres", "-D", "/var/lib/postgresql/data"]

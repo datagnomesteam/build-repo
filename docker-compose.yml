@@ -1,0 +1,50 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: data_server
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000" # FastAPI
+      - "8501:8501" # Streamlit
+    environment:
+      - DB_NAME=datastore
+      - API_URL=http://server:8000
+    #Uncomment for debugging later
+    #volumes:
+    #  - ./server:/app
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile.local
+    container_name: db
+    shm_size: "2gb"
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 4G
+    ports:
+      - "5432:5432"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=datastore
+      - DB_USER=server
+      - DB_PASSWORD=server
+      - MEMORY_LIMIT=4G
+    networks:
+      - app_network
+    restart: unless-stopped
+
+networks:
+  app_network:
+    driver: bridge
