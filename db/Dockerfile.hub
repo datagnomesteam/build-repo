@@ -1,11 +1,12 @@
-FROM debian:bookworm-slim AS prepare
+FROM debian:bookworm
 
-# Install PostgreSQL 15, zstd, aria2, and other tools
+# Install PostgreSQL 15
 RUN apt-get update && \
-    apt-get install -y postgresql-15 postgresql-client-15 zstd aria2 && \
+    apt-get install -y postgresql-15 postgresql-client-15 && \
     apt-get autoremove -y && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/*
+
 
 # Environment variables
 ENV PGDATA=/var/lib/postgresql/data
@@ -14,7 +15,6 @@ ENV POSTGRES_DB=datastore
 # Create database directory
 RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
 
-# Copy or download dump
 RUN --mount=type=secret,id=dataset_url \
     mkdir -p /tmp && \
     aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --check-certificate=false --max-tries=50 --retry-wait=5 --allow-overwrite=true --auto-file-renaming=false "$(cat /run/secrets/dataset_url)" -o /tmp/pg.zst; \
@@ -35,40 +35,11 @@ RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
     psql -d $POSTGRES_DB -c "CREATE USER chris WITH SUPERUSER PASSWORD 'chris';" && \
     psql -d $POSTGRES_DB -c "CREATE USER willbaldwin WITH SUPERUSER PASSWORD 'willbaldwin';" && \
     zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | psql --set ON_ERROR_STOP=1 && \
-    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop
+    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop && \
+    rm -rf /tmp/pg.zst
 
-# Clean up
-RUN rm /tmp/pg.zst
-
-# Final stage
-FROM debian:bookworm-slim
-
-# Install PostgreSQL 15
-RUN apt-get update && \
-    apt-get install -y postgresql-15 postgresql-client-15 && \
-    apt-get autoremove -y && \
-    apt-get autoclean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Environment variables
-ENV PGDATA=/var/lib/postgresql/data
-ENV POSTGRES_DB=datastore
-
-# Copy prepared database from previous stage
-COPY --from=prepare $PGDATA $PGDATA
-
-# Create database directory and set permissions
-RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
-
-# Use postgres user
-USER postgres
-
-# Expose Postgres port
+# Expose Postgres port (optional)
 EXPOSE 5432
-
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD pg_isready -U postgres -d $POSTGRES_DB
 
 # Default command
 CMD ["/usr/lib/postgresql/15/bin/postgres", "-D", "/var/lib/postgresql/data"]
