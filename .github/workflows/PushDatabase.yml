@@ -21,7 +21,7 @@ jobs:
       DOCKERFILE_PATH: ${{ github.workspace }}/db
       PLATFORM: ${{ matrix.platform }}
       DOCKER_BUILDKIT: 1
-      BUILDKIT_INLINE_CACHE: 1
+      #BUILDKIT_INLINE_CACHE: 1
       ACTIONS_STEP_DEBUG: true
       ACTIONS_RUNNER_DEBUG: true
 
@@ -122,8 +122,6 @@ jobs:
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
           outputs: type=image,compression=zstd,compression-level=19
-          cache-from: type=registry,ref=${{ env.MAIN_REPO_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.MAIN_REPO_NAME }}:buildcache,mode=max
 
       - name: Update repo description
         if: matrix.platform == 'linux/amd64'
