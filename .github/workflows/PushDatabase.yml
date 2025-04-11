@@ -30,21 +30,7 @@ jobs:
 
       - name: Clean up disk space
         run: |
-          # Remove unnecessary packages
-          sudo apt-get remove -y \
-            acl aria2 autoconf automake bison brotli bzip2 coreutils curl dbus dnsutils \
-            dpkg-dev fakeroot file findutils flex fonts-noto-color-emoji ftp g++ gcc \
-            gnupg2 haveged imagemagick iproute2 iputils-ping jq lib32z1 libc++-dev \
-            libc++abi-dev libc6-dev libcurl4 libgbm-dev libgconf-2-4 libgsl-dev \
-            libgtk-3-0 libmagic-dev libmagickcore-dev libmagickwand-dev libsecret-1-dev \
-            libsqlite3-dev libtool libunwind8 libxkbfile-dev libxss1 libyaml-dev \
-            locales m4 make mediainfo mercurial net-tools netcat openssh-client \
-            p7zip-full p7zip-rar parallel pass patchelf pigz pkg-config pollinate \
-            python-is-python3 rpm rsync shellcheck sphinxsearch sqlite3 ssh sshpass \
-            subversion swig systemd-coredump tar telnet texinfo time tk tzdata unzip \
-            upx wget xorriso xvfb xz-utils zip zsync
-
-          # Remove development tools and runtimes
+          # Remove unnecessary development tools and runtimes
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/local/lib/node_modules
           sudo rm -rf /usr/local/share/powershell
@@ -89,6 +75,8 @@ jobs:
           sudo rm -rf /usr/lib/mysql
           # Remove cached tools
           sudo rm -rf /opt/hostedtoolcache
+          # Clean apt cache
+          sudo apt-get clean
           # Remove Docker cached images
           docker system prune -af --volumes || true
           df -h
@@ -180,21 +168,7 @@ jobs:
 
       - name: Clean up disk space
         run: |
-          # Remove unnecessary packages
-          sudo apt-get remove -y \
-            acl aria2 autoconf automake bison brotli bzip2 coreutils curl dbus dnsutils \
-            dpkg-dev fakeroot file findutils flex fonts-noto-color-emoji ftp g++ gcc \
-            gnupg2 haveged imagemagick iproute2 iputils-ping jq lib32z1 libc++-dev \
-            libc++abi-dev libc6-dev libcurl4 libgbm-dev libgconf-2-4 libgsl-dev \
-            libgtk-3-0 libmagic-dev libmagickcore-dev libmagickwand-dev libsecret-1-dev \
-            libsqlite3-dev libtool libunwind8 libxkbfile-dev libxss1 libyaml-dev \
-            locales m4 make mediainfo mercurial net-tools netcat openssh-client \
-            p7zip-full p7zip-rar parallel pass patchelf pigz pkg-config pollinate \
-            python-is-python3 rpm rsync shellcheck sphinxsearch sqlite3 ssh sshpass \
-            subversion swig systemd-coredump tar telnet texinfo time tk tzdata unzip \
-            upx wget xorriso xvfb xz-utils zip zsync
-
-          # Remove development tools and runtimes
+          # Remove unnecessary development tools and runtimes
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/local/lib/node_modules
           sudo rm -rf /usr/local/share/powershell
@@ -239,6 +213,8 @@ jobs:
           sudo rm -rf /usr/lib/mysql
           # Remove cached tools
           sudo rm -rf /opt/hostedtoolcache
+          # Clean apt cache
+          sudo apt-get clean
           # Remove Docker cached images
           docker system prune -af --volumes || true
           df -h
