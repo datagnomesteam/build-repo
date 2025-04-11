@@ -14,7 +14,10 @@ on:
 jobs:
   prepare-database:
     timeout-minutes: 60
-    runs-on: ubuntu-20.04  # Using older Ubuntu version for smaller size
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:22.04
+      options: --privileged
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
@@ -25,61 +28,28 @@ jobs:
       ACTIONS_RUNNER_DEBUG: true
 
     steps:
+      - name: Install essential packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release \
+            jq \
+            gzip \
+            tar
+
+      - name: Install Docker
+        run: |
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          apt-get update
+          apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Clean up disk space
-        run: |
-          # Remove unnecessary development tools and runtimes
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/local/lib/node_modules
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/share/phantomjs
-          sudo rm -rf /etc/apache2
-          sudo rm -rf /etc/default/mono-xsp4
-          sudo rm -rf /etc/nginx
-          sudo rm -rf /usr/local/share/chromedriver-linux64
-          sudo rm -rf /usr/local/share/edge_driver
-          sudo rm -rf /usr/local/share/gecko_driver
-          sudo rm -rf /usr/share/java/selenium-server.jar
-          # Remove AWS CLI
-          sudo rm -rf /usr/local/aws-cli
-          sudo rm -rf /usr/local/bin/aws
-          # Remove Netlify CLI
-          sudo rm -rf /usr/local/bin/netlify
-          sudo rm -rf /usr/local/lib/node_modules/netlify-cli
-          # Remove other unnecessary tools
-          sudo rm -rf /usr/local/bin/heroku
-          sudo rm -rf /usr/local/bin/vercel
-          sudo rm -rf /usr/local/bin/now
-          # Remove language runtimes
-          sudo rm -rf /usr/local/lib/erlang
-          sudo rm -rf /usr/local/lib/julia
-          sudo rm -rf /usr/local/lib/kotlin
-          sudo rm -rf /usr/local/lib/mono
-          sudo rm -rf /usr/local/lib/python*
-          sudo rm -rf /usr/local/lib/ruby
-          sudo rm -rf /usr/local/lib/swift
-          # Remove package managers
-          sudo rm -rf /usr/share/miniconda
-          sudo rm -rf /usr/local/share/vcpkg
-          sudo rm -rf /home/linuxbrew
-          # Remove project management tools
-          sudo rm -rf /usr/local/ant
-          sudo rm -rf /usr/local/gradle
-          sudo rm -rf /usr/local/maven
-          sudo rm -rf /usr/local/sbt
-          # Remove databases
-          sudo rm -rf /usr/lib/postgresql
-          sudo rm -rf /usr/lib/mysql
-          # Remove cached tools
-          sudo rm -rf /opt/hostedtoolcache
-          # Clean apt cache
-          sudo apt-get clean
-          # Remove Docker cached images
-          docker system prune -af --volumes || true
-          df -h
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -122,7 +92,6 @@ jobs:
         run: |
           docker save ${{ env.MAIN_REPO_NAME }}:prepare | gzip > prepared_db.tar.gz
           docker system prune -af --volumes || true
-          df -h
 
       - name: Cache prepared database
         uses: actions/cache@v4
@@ -144,12 +113,14 @@ jobs:
           docker system prune -af --volumes || true
           docker builder prune -af || true
           docker image prune -af || true
-          df -h
 
   build-and-push:
     needs: prepare-database
     timeout-minutes: 30
-    runs-on: ubuntu-20.04  # Using older Ubuntu version for smaller size
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:22.04
+      options: --privileged
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
@@ -163,61 +134,29 @@ jobs:
         platform: [linux/amd64]
 
     steps:
+      - name: Install essential packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release \
+            jq \
+            gzip \
+            tar \
+            qemu-user-static
+
+      - name: Install Docker
+        run: |
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          apt-get update
+          apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Clean up disk space
-        run: |
-          # Remove unnecessary development tools and runtimes
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/local/lib/node_modules
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/share/phantomjs
-          sudo rm -rf /etc/apache2
-          sudo rm -rf /etc/default/mono-xsp4
-          sudo rm -rf /etc/nginx
-          sudo rm -rf /usr/local/share/chromedriver-linux64
-          sudo rm -rf /usr/local/share/edge_driver
-          sudo rm -rf /usr/local/share/gecko_driver
-          sudo rm -rf /usr/share/java/selenium-server.jar
-          # Remove AWS CLI
-          sudo rm -rf /usr/local/aws-cli
-          sudo rm -rf /usr/local/bin/aws
-          # Remove Netlify CLI
-          sudo rm -rf /usr/local/bin/netlify
-          sudo rm -rf /usr/local/lib/node_modules/netlify-cli
-          # Remove other unnecessary tools
-          sudo rm -rf /usr/local/bin/heroku
-          sudo rm -rf /usr/local/bin/vercel
-          sudo rm -rf /usr/local/bin/now
-          # Remove language runtimes
-          sudo rm -rf /usr/local/lib/erlang
-          sudo rm -rf /usr/local/lib/julia
-          sudo rm -rf /usr/local/lib/kotlin
-          sudo rm -rf /usr/local/lib/mono
-          sudo rm -rf /usr/local/lib/python*
-          sudo rm -rf /usr/local/lib/ruby
-          sudo rm -rf /usr/local/lib/swift
-          # Remove package managers
-          sudo rm -rf /usr/share/miniconda
-          sudo rm -rf /usr/local/share/vcpkg
-          sudo rm -rf /home/linuxbrew
-          # Remove project management tools
-          sudo rm -rf /usr/local/ant
-          sudo rm -rf /usr/local/gradle
-          sudo rm -rf /usr/local/maven
-          sudo rm -rf /usr/local/sbt
-          # Remove databases
-          sudo rm -rf /usr/lib/postgresql
-          sudo rm -rf /usr/lib/mysql
-          # Remove cached tools
-          sudo rm -rf /opt/hostedtoolcache
-          # Clean apt cache
-          sudo apt-get clean
-          # Remove Docker cached images
-          docker system prune -af --volumes || true
-          df -h
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -242,7 +181,6 @@ jobs:
         run: |
           gunzip -c prepared_db.tar.gz | docker load
           rm -f prepared_db.tar.gz
-          df -h
 
       - name: Retrieve Docker Credentials
         id: retrieve-credentials
@@ -297,4 +235,3 @@ jobs:
           docker system prune -af --volumes || true
           docker builder prune -af || true
           docker image prune -af || true
-          df -h
