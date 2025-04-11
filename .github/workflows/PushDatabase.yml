@@ -14,7 +14,7 @@ on:
 jobs:
   prepare-database:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # Using older Ubuntu version for smaller size
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
@@ -28,12 +28,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Clean up disk space
+        run: |
+          sudo apt-get clean
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/phantomjs
+          docker system prune -af --volumes || true
+          df -h
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             network=host
             image=moby/buildkit:master
+            memory=6g
 
       - name: Retrieve Docker Credentials
         id: retrieve-credentials
@@ -68,6 +80,7 @@ jobs:
         run: |
           docker save ${{ env.MAIN_REPO_NAME }}:prepare | gzip > prepared_db.tar.gz
           docker system prune -af --volumes || true
+          df -h
 
       - name: Cache prepared database
         uses: actions/cache@v4
@@ -89,11 +102,12 @@ jobs:
           docker system prune -af --volumes || true
           docker builder prune -af || true
           docker image prune -af || true
+          df -h
 
   build-and-push:
     needs: prepare-database
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04  # Using older Ubuntu version for smaller size
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
@@ -104,11 +118,29 @@ jobs:
 
     strategy:
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        platform: [linux/amd64]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Clean up disk space
+        run: |
+          sudo apt-get clean
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/phantomjs
+          sudo rm -rf /etc/apache2
+          sudo rm -rf /etc/default/mono-xsp4
+          sudo rm -rf /etc/nginx
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/local/share/gecko_driver
+          sudo rm -rf /usr/share/java/selenium-server.jar
+          docker system prune -af --volumes || true
+          df -h
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -121,6 +153,7 @@ jobs:
           driver-opts: |
             network=host
             image=moby/buildkit:master
+            memory=6g
 
       - name: Restore prepared database
         uses: actions/cache@v4
@@ -131,6 +164,8 @@ jobs:
       - name: Load prepared database
         run: |
           gunzip -c prepared_db.tar.gz | docker load
+          rm -f prepared_db.tar.gz
+          df -h
 
       - name: Retrieve Docker Credentials
         id: retrieve-credentials
@@ -185,3 +220,4 @@ jobs:
           docker system prune -af --volumes || true
           docker builder prune -af || true
           docker image prune -af || true
+          df -h
