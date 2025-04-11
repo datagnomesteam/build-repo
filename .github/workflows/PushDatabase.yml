@@ -28,7 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Clean up disk space
+        - name: Clean up disk space
         run: |
           sudo apt-get clean
           sudo rm -rf /usr/local/lib/android
@@ -36,6 +36,13 @@ jobs:
           sudo rm -rf /usr/local/share/powershell
           sudo rm -rf /usr/local/share/chromium
           sudo rm -rf /usr/local/share/phantomjs
+          sudo rm -rf /etc/apache2
+          sudo rm -rf /etc/default/mono-xsp4
+          sudo rm -rf /etc/nginx
+          sudo rm -rf /usr/local/share/chromedriver-linux64
+          sudo rm -rf /usr/local/share/edge_driver
+          sudo rm -rf /usr/local/share/gecko_driver
+          sudo rm -rf /usr/share/java/selenium-server.jar
           docker system prune -af --volumes || true
           df -h
 
