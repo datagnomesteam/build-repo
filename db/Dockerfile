@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 
 # Install PostgreSQL 15, zstd, aria2, and other tools
 RUN apt-get update && \
-    apt-get install -y postgresql-15 postgresql-client-15 zstd pv && \
+    apt-get install -y postgresql-15 postgresql-client-15 zstd && \
     apt-get autoremove -y && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/*
@@ -32,8 +32,9 @@ RUN /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA start && \
     createdb $POSTGRES_DB && \
     psql -d $POSTGRES_DB -c "CREATE USER chris WITH SUPERUSER PASSWORD 'chris';" && \
     psql -d $POSTGRES_DB -c "CREATE USER willbaldwin WITH SUPERUSER PASSWORD 'willbaldwin';" && \
-    zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | pv -s $(zstd -l /tmp/pg.zst | grep "Decompressed" | awk '{print $3}') | psql --set ON_ERROR_STOP=1 && \
-    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop && rm /tmp/pg.zst
+    zstd -d --memory=$MEMORY_LIMIT /tmp/pg.zst -c | psql --set ON_ERROR_STOP=1 && \
+    /usr/lib/postgresql/15/bin/pg_ctl -D $PGDATA -m fast -w stop && \
+    rm -rf /tmp/pg.zst
 
 # Expose Postgres port (optional)
 EXPOSE 5432
