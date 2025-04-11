@@ -122,6 +122,7 @@ jobs:
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
           outputs: type=image,compression=zstd,compression-level=19
+          provenance: false
 
       - name: Update repo description
         if: matrix.platform == 'linux/amd64'
