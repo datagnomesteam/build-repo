@@ -21,6 +21,8 @@ jobs:
       DOCKERFILE_PATH: ${{ github.workspace }}/db
       DOCKER_BUILDKIT: 1
       BUILDKIT_INLINE_CACHE: 1
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
 
     steps:
       - name: Checkout code
