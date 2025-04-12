@@ -11,6 +11,11 @@ services:
       - "8000:8000" # FastAPI
       - "8501:8501" # Streamlit
     environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=datastore
+      - DB_USER=chris
+      - DB_PASSWORD=chris
       - DB_NAME=datastore
       - API_URL=http://server:8000
     #Uncomment for debugging later
@@ -19,6 +24,12 @@ services:
     networks:
       - app_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U server -d datastore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 
   db:
     build:
