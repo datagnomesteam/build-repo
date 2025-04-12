@@ -60,6 +60,7 @@ def fetch_events(filters=None):
         sampled_events AS (
             SELECT * 
             FROM device_event TABLESAMPLE SYSTEM({sample_percent})
+            REPEATABLE (200)
         )
         SELECT 
             d.generic_name,
