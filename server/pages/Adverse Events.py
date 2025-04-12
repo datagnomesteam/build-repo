@@ -13,6 +13,9 @@ from psycopg2.extras import RealDictCursor
 import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection, get_db_cursor
+from datetime import date
+
+sample_percent = 0.1
 
 # connect to local db
 def get_database_connection():
@@ -25,61 +28,87 @@ def get_database_connection():
 
 # function to fetch recall data; filter is dict {col: value}
 def fetch_events(filters=None):
+    global sample_percent
     conn = get_database_connection()
     if not conn:
         return pd.DataFrame()
     
+    # Step 1: Calculate the approximate row count from pg_class
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""
+            SELECT reltuples::BIGINT AS total
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relname = 'device_event' AND n.nspname = 'public';
+        """)
+        total_rows = cur.fetchone()['total']
+
+    # Step 2: Calculate the sample percentage (for approx 500k rows)
+    target_count = 500000
+    sample_percent = min(100.0, max(0.01, (target_count*4 / total_rows) * 100))
+    sample_percent = round(sample_percent, 2)
+    st.write(sample_percent)
+    
     try:
-        query = """
+        query = f"""
+        WITH approx_count AS (
+            SELECT reltuples::BIGINT AS total
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relname = 'device_event' AND n.nspname = 'public'
+        ),
+        sampled_events AS (
+            SELECT * 
+            FROM device_event TABLESAMPLE SYSTEM({sample_percent})
+        )
         SELECT 
-        d.generic_name,
-        de.event_id ,
-        adverse_event_flag,
-        date_facility_aware,
-        date_of_event,
-        date_report_to_fda ,
-        date_report_to_manufacturer,
-        event_type,
-        health_professional,
-        product_problems, 
-        number_devices_in_event,
-        number_patients_in_event,
-        d.manufacturer_d_name,
-        d.manufacturer_d_country,
-        d.manufacturer_d_postal_code,
-        d.manufacturer_d_state
-        FROM device_event de
-        JOIN device d 
-        on d.event_id = de.event_id
+            d.generic_name,
+            de.event_id,
+            de.adverse_event_flag,
+            de.date_facility_aware,
+            de.date_of_event,
+            de.date_report_to_fda,
+            de.date_report_to_manufacturer,
+            de.event_type,
+            de.health_professional,
+            de.product_problems, 
+            de.number_devices_in_event,
+            de.number_patients_in_event,
+            d.manufacturer_d_name,
+            d.manufacturer_d_country,
+            d.manufacturer_d_postal_code,
+            d.manufacturer_d_state
+        FROM sampled_events de
+        JOIN device d ON d.event_id = de.event_id
         """
-        
+
         where_clauses = []
         params = []
-        
+
         if filters:
             if filters.get('generic_name'):
-                where_clauses.append('generic_name ILIKE %s')
+                where_clauses.append('d.generic_name ILIKE %s')
                 params.append(f'%{filters["generic_name"]}%')
             
             if filters.get('manufacturer_d_name'):
-                where_clauses.append('manufacturer_d_name ILIKE %s')
+                where_clauses.append('d.manufacturer_d_name ILIKE %s')
                 params.append(f'%{filters["manufacturer_d_name"]}%')
             
             if filters.get('date_from') and filters.get('date_to'):
-                where_clauses.append('date_of_event BETWEEN %s AND %s')
+                where_clauses.append('de.date_of_event BETWEEN %s AND %s')
                 params.append(filters["date_from"])
                 params.append(filters["date_to"])
-        
+
         if where_clauses:
             query += ' WHERE ' + ' AND '.join(where_clauses)
         
-        query += ' ORDER BY date_of_event DESC'
-        
+        query += ' ORDER BY de.date_of_event DESC'
+
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(query, params)
             results = cur.fetchall()
-        
-        df =  pd.DataFrame(results)
+
+        df = pd.DataFrame(results)
 
         return df
     
@@ -152,14 +181,17 @@ def main():
     
     # sidebar filters
     st.sidebar.header("Filters")
+
+    min_date = date(1947, 1, 1)
+    max_date = date(2025, 1, 1)
     
     # date range filter
     st.sidebar.subheader("Date Range")
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        date_from = st.date_input("From", datetime.now() - timedelta(days=365))
+        date_from = st.date_input("From", datetime.now() - timedelta(days=365),min_value=min_date, max_value=max_date)
     with col2:
-        date_to = st.date_input("To", datetime.now())
+        date_to = st.date_input("To", max_date,min_value=min_date, max_value=max_date)
     
     # text filters
     device_name = st.sidebar.text_input("Device Name (Generic)")
@@ -194,6 +226,9 @@ def main():
         
         with metrics_col1:
             st.metric("Total Adverse Events", df.shape[0])
+        
+        #with metrics_col2:
+        #    st.metric("Percentage of Events processed",sample_percent)
                 
         # with metrics_col2:
         #     class_counts = df['root_cause_description'].value_counts()
@@ -236,8 +271,9 @@ def main():
         
         # time series chart
         df['date_of_event'] = pd.to_datetime(df['date_of_event'], errors='coerce')
+        df = df[df['date_of_event'] >= pd.Timestamp('1902-01-01')]
         monthly_counts = df.groupby(pd.Grouper(key='date_of_event', freq='M'), dropna=True).size().reset_index(name='count')
-        
+
         fig3 = px.line(
             monthly_counts, 
             x='date_of_event', 
