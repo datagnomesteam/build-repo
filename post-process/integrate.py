@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import HashingTF, MinHashLSH
 from pyspark.sql.functions import col, lit, concat_ws, expr, regexp_replace, lower, trim, when
+from pyspark import StorageLevel
 from configs import db_credentials, sources, canonicals, mappings, pivot_cols
 #import findspark
 #findspark.init()
@@ -8,7 +9,10 @@ from configs import db_credentials, sources, canonicals, mappings, pivot_cols
 # Initialize Spark session
 spark = SparkSession.builder \
     .appName("PostgresJDBC") \
+    .master("local[4]") \
     .config("spark.jars", "./lib/postgresql-42.7.5.jar") \
+    .config("spark.executor.memory", "6g") \
+    .config("spark.driver.memory", "2g") \
     .getOrCreate()
 
 # PostgreSQL connection properties
@@ -35,13 +39,13 @@ mappings = mappings
 raw_tables = {}
 for source in sources:
     if source != "device_events":
-        raw_tables[source] = spark.read.jdbc(url=jdbc_url, table=source, properties=db_properties)
+        raw_tables[source] = spark.read.jdbc(url=jdbc_url, table=f"{source}", properties=db_properties)
     else:
         # join events back onto devices to create device_events table
-        devices = spark.read.jdbc(url=jdbc_url, table="device", properties=db_properties)
-        events = spark.read.jdbc(url=jdbc_url, table="device_event", properties=db_properties)
+        devices = spark.read.jdbc(url=jdbc_url, table="device", properties=db_properties).repartition("event_id")
+        events = spark.read.jdbc(url=jdbc_url, table="device_event", properties=db_properties).repartition("event_id")
         raw_tables[source] = devices.join(events.select("event_key", "event_location", "event_type", "remedial_action", "date_of_event", "event_id"), "event_id", "left")
-
+    
 # Map to canonicals
 def build_schema(df, mapping, canonicals):
     canonical_list = canonicals.keys()
@@ -58,15 +62,14 @@ def build_schema(df, mapping, canonicals):
 def clean_canon(df, canonical):
     # replace symbols with whitespace; standardize whitespace; trim lower; get rid of any lingering spaces
     df = df.withColumn(canonical, regexp_replace(col(canonical), r"[^a-zA-Z0-9]", " ")) \
-           .withColumn(canonical, regexp_replace(col(canonical), r"\s{2,}", " ")) \
-           .withColumn(canonical, lower(trim(col(canonical)))) \
-           .withColumn(canonical, when(col(canonical) == "", None).otherwise(col(canonical)))
+        .withColumn(canonical, regexp_replace(col(canonical), r"\s{2,}", " ")) \
+        .withColumn(canonical, lower(trim(col(canonical)))) \
+        .withColumn(canonical, when(col(canonical) == "", None).otherwise(col(canonical)))
     return df
 
 # Harmonize schemas
 tables_to_union = []
 for source in sources:
-    print(source)
     mapping = mappings.get(source)
     df = raw_tables.get(source)
     tables_to_union.append(build_schema(df.withColumn("source", lit(source)), mapping, canonicals).withColumn("pkey", expr("uuid()")))
@@ -76,15 +79,16 @@ master = tables_to_union[0]  # initialize merge with first df
 for table in tables_to_union[1:]:
     master = master.union(table).na.replace("", None)
 
+#master = master.repartition(100)
+
 # Pivot and 1 hot encode
 for column in pivot_cols:
-    values = master.select(column).distinct().filter(col(column) != None).rdd.flatMap(lambda x: x).collect()
     master = master \
         .groupBy(master.columns) \
         .pivot(column) \
         .agg(lit(1)) \
         .fillna(0) \
         .drop("null")
-
 master = master.select([col(column).alias(column.replace(' ', '_').lower()) for column in master.columns])
 master.write.jdbc(url=jdbc_url, table="integrated", mode="overwrite", properties=db_properties)
+spark.stop()

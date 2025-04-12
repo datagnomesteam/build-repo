@@ -18,5 +18,3 @@ def get_db_connection():
 
 def get_db_cursor(conn):
     return conn.cursor()
-
-

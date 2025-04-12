@@ -41,10 +41,10 @@ canonicals = {
 mappings = {
     "device_events": {
         "source_id": "event_id",
-        "device_name": "device_name", 
+        "device_name": "openfda_device_name", 
         "granular_name": "brand_name", 
         "generic_name": "generic_name",
-        "device_class": "device_class",
+        "device_class": "openfda_device_class",
         "event_type": "event_type",
         "event_date": "date_of_event",
         "event_status": "remedial_action",
@@ -54,13 +54,13 @@ mappings = {
         "manufacturer_state": "manufacturer_d_state",
         "manufacturer_zip": "manufacturer_d_postal_code",
         "manufacturer_country": "manufacturer_d_country",
-        "regulation_number": "regulation_number",
-        "medical_specialty_description": "medical_specialty_description"
+        "regulation_number": "openfda_regulation_number",
+        "medical_specialty_description": "openfda_medical_specialty_description"
     },
     "submission": {
         "source_id": "id",
-        "device_name": "device_name", 
-        "device_class": "device_class",
+        "device_name": "openfda_device_name", 
+        "device_class": "openfda_device_class",
         "manufacturer_name": "applicant",
         "k_number": "k_number",
         "event_status": "decision_code",
@@ -70,15 +70,15 @@ mappings = {
         "manufacturer_state": "state",
         "manufacturer_zip": "postal_code",
         "manufacturer_country": "country_code",
-        "regulation_number": "regulation_number",
-        "medical_specialty_description": "medical_specialty_description"
+        "regulation_number": "openfda_regulation_number",
+        "medical_specialty_description": "openfda_medical_specialty_description"
     },
     "pma_submission": {
         "source_id": "id",
-        "device_name": "device_name", 
+        "device_name": "openfda_device_name", 
         "granular_name": "trade_name", 
         "generic_name": "generic_name",
-        "device_class": "device_class",
+        "device_class": "openfda_device_class",
         "manufacturer_name": "applicant",
         "pma_number": "pma_number",
         "event_status": "decision_code",
@@ -87,13 +87,13 @@ mappings = {
         "manufacturer_city": "city",
         "manufacturer_state": "state",
         "manufacturer_zip": "zip",
-        "regulation_number": "regulation_number",
-        "medical_specialty_description": "medical_specialty_description"
+        "regulation_number": "openfda_regulation_number",
+        "medical_specialty_description": "openfda_medical_specialty_description"
     },
     "recall": {
         "source_id": "id",
-        "device_name": "device_name", 
-        "device_class": "device_class", 
+        "device_name": "openfda_device_name", 
+        "device_class": "openfda_device_class", 
         "manufacturer_name": "recalling_firm",
         "manufacturer_fei": "firm_fei_number",
         "k_number": "openfda_k_number",
@@ -105,8 +105,8 @@ mappings = {
         "manufacturer_state": "state",
         "manufacturer_zip": "postal_code",
         "manufacturer_country": "country",
-        "regulation_number": "regulation_number",
+        "regulation_number": "openfda_regulation_number",
         "product_quantity": "product_quantity",
-        "medical_specialty_description": "medical_specialty_description"
+        "medical_specialty_description": "openfda_medical_specialty_description"
     }
 }
