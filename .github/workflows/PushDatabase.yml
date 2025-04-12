@@ -18,15 +18,9 @@ jobs:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
       DOCKERFILE_PATH: ${{ github.workspace }}/db
-      PLATFORM: ${{ matrix.platform }}
       DOCKER_BUILDKIT: 1
-      #BUILDKIT_INLINE_CACHE: 1
       ACTIONS_STEP_DEBUG: true
       ACTIONS_RUNNER_DEBUG: true
-
-    strategy:
-      matrix:
-        platform: [linux/amd64, linux/arm64]
 
     steps:
       - name: Check the initial disk space
@@ -78,8 +72,6 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: ${{ env.PLATFORM }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -105,12 +97,12 @@ jobs:
             echo "Warning: Failed to delete 'latest' tag (Status: $DELETE_STATUS_CODE). It might not exist or there was an error."
           fi
 
-      - name: Build and push final image
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.DOCKERFILE_PATH }}
           file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
-          platforms: ${{ env.PLATFORM }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
           provenance: false
@@ -118,7 +110,6 @@ jobs:
             dataset_url=${{ secrets.DATASET_URL_SLIM }}
 
       - name: Update repo description
-        if: matrix.platform == 'linux/amd64'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
