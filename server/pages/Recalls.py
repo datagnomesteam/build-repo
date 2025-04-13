@@ -10,8 +10,10 @@ import streamlit as st
 import pandas as pd
 from psycopg2.extras import RealDictCursor
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from db_info import get_db_connection, get_db_cursor
+from utils import build_forecast_data, forecast, plot_timeseries
 
 # connect to local db
 def get_database_connection():
@@ -135,12 +137,34 @@ def main():
     st.sidebar.header("Filters")
     
     # date range filter
-    st.sidebar.subheader("Date Range")
+    # define the minimum and maximum selectable dates
+    min_date = date(1945, 1, 1)
+    max_date = date(2025, 1, 1)
+
     col1, col2 = st.sidebar.columns(2)
+
     with col1:
-        date_from = st.date_input("From", datetime.now() - timedelta(days=365))
+        # user selects the 'From' date
+        date_from = st.date_input(
+            "From",
+            value=max_date - timedelta(days=365*2),
+            min_value=min_date,
+            max_value=max_date - timedelta(days=365*2)
+        )
+
+    # calculate the minimum 'To' date (2 years after 'From' date)
+    min_to_date = max_date
+    if date_from + relativedelta(years=2) <= max_date:
+        min_to_date = date_from + relativedelta(years=2)
+
     with col2:
-        date_to = st.date_input("To", datetime.now())
+        # user selects the 'to' date with adjusted constraints
+        date_to = st.date_input(
+            "To",
+            value=min_to_date,
+            min_value=min_to_date,
+            max_value=max_date
+        )
     
     # text filters
     device_name = st.sidebar.text_input("Device Name")
@@ -216,16 +240,9 @@ def main():
             st.plotly_chart(fig2)
         
         # time series chart
-        df['event_date_posted'] = pd.to_datetime(df['event_date_posted'], errors='coerce')
-        monthly_counts = df.groupby(pd.Grouper(key='event_date_posted', freq='M'), dropna=True).size().reset_index(name='count')
-        
-        fig3 = px.line(
-            monthly_counts, 
-            x='event_date_posted', 
-            y='count', 
-            title='Recalls Over Time',
-            labels={'event_date_posted': 'Date', 'count': 'Number of Recalls'}
-        )
+        monthly_counts = build_forecast_data(df=df, date_field='event_date_posted', freq='M')
+        forecasted_data, forecasted = forecast(counts_df=monthly_counts, date_field='event_date_posted', freq='M')
+        fig3 = plot_timeseries(df=forecasted_data, forecasted=forecasted, date_field='event_date_posted', page='Events')
         st.plotly_chart(fig3)
         
         # data table with search and sort

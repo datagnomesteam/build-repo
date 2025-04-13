@@ -8,14 +8,12 @@ NOTE: please set your own password in this file and init_recall_db.py
 
 import streamlit as st
 import pandas as pd
-import psycopg2
 from psycopg2.extras import RealDictCursor
 import plotly.express as px
 from datetime import datetime, timedelta
-from db_info import get_db_connection, get_db_cursor
+from db_info import get_db_connection
+from utils import build_forecast_data, forecast, plot_timeseries
 from datetime import date
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-import plotly.graph_objects as go
 from dateutil.relativedelta import relativedelta
 
 sample_percent = 0.1
@@ -28,118 +26,6 @@ def get_database_connection():
     except Exception as e:
         st.error(f'Database connection error: {e}')
         return None
-    
-def forecast(monthly_counts):
-    # fit the Exponential Smoothing Model
-    try:
-        model = ExponentialSmoothing(monthly_counts['count'], trend='add', seasonal='add', seasonal_periods=12)
-    except ValueError:
-        combined_df = monthly_counts.reset_index()
-        combined_df['type'] = ['Actual'] * len(monthly_counts)
-        return combined_df, False
-    else:
-        fit = model.fit()
-
-        # generate Forecasts
-        forecast_periods = 24  # forecasting 24 months ahead
-        forecast_index = pd.date_range(start=monthly_counts.index[-1] + pd.DateOffset(months=1), periods=forecast_periods, freq='M')
-        forecast = fit.forecast(forecast_periods)
-        forecast_series = pd.Series(forecast, index=forecast_index)
-
-        # combine actual and forecasted Data
-        combined_series = pd.concat([monthly_counts['count'], forecast_series])
-        combined_df = combined_series.reset_index()
-        combined_df.columns = ['date_of_event', 'count']
-        combined_df['type'] = ['Actual'] * len(monthly_counts) + ['Forecast'] * forecast_periods
-        return combined_df, True
-
-def plot_timeseries(df, forecasted):
-    policy_changes = [
-        {'date': '1906-01-01', 'label': 'Pure Food and Drugs Act'},
-        {'date': '1938-01-01', 'label': 'Federal Food, Drug, and Cosmetic Act'},
-        {'date': '1944-01-01', 'label': 'Public Health Service Act'},
-        {'date': '1968-01-01', 'label': 'Radiation Control for Health and Safety Act'},
-        {'date': '1976-01-01', 'label': 'Medical Device Amendments to the FD&C Act'},
-        {'date': '1990-01-01', 'label': 'Safe Medical Devices Act'},
-        {'date': '1992-01-01', 'label': 'Mammography Quality Standards Act'},
-        {'date': '1997-01-01', 'label': 'FDA Modernization Act'},
-        {'date': '2002-01-01', 'label': 'Medical Device User Fee and Modernization Act'},
-        {'date': '2007-01-01', 'label': 'FDA Amendments Act'},
-        {'date': '2012-01-01', 'label': 'FDA Safety and Innovation Act'},
-        {'date': '2016-01-01', 'label': '21st Century Cures Act'},
-        {'date': '2017-01-01', 'label': 'FDA Reauthorization Act'},
-        {'date': '2020-01-01', 'label': 'Coronavirus Aid, Relief, and Economic Security Act'},
-        {'date': '2022-01-01', 'label': 'FDAUFRA; FDORA; PREVENT Pandemics Act'}
-    ]
-
-    # Filter policy changes to include only those within the data range
-    valid_policy_changes = [
-        policy for policy in policy_changes
-        if df['date_of_event'].min() <= pd.to_datetime(policy['date']) <= df['date_of_event'].max()
-    ]
-    
-    # plot with plotly
-    fig = go.Figure()
-
-    # plot actual data
-    fig.add_trace(go.Scatter(
-        x=df[df['type'] == 'Actual']['date_of_event'],
-        y=df[df['type'] == 'Actual']['count'],
-        mode='lines',
-        name='Actual',
-        line=dict(color='blue')
-    ))
-
-    if forecasted:
-        # plot forecasted data
-        fig.add_trace(go.Scatter(
-            x=df[df['type'] == 'Forecast']['date_of_event'],
-            y=df[df['type'] == 'Forecast']['count'],
-            mode='lines',
-            name='Forecast',
-            line=dict(color='red', dash='dash')
-        ))
-    
-    # add vertical lines for each valid policy change
-    for policy in valid_policy_changes:
-        fig.add_vline(
-            x=pd.to_datetime(policy['date']),
-            line_width=2,
-            line_dash="solid",
-            line_color="black"
-        )
-        fig.add_annotation(
-            x=pd.to_datetime(policy['date']),
-            y=df['count'].max(),
-            text=policy['label'],
-            showarrow=False,
-            font=dict(size=10, color="black"),
-            align="center"
-        )
-
-    # add a hyperlinked footer
-    fig.add_annotation(
-        x=-10,
-        y=0,
-        xref="paper",
-        yref="paper",
-        text="<a href='https://www.fda.gov/medical-devices/overview-device-regulation/history-medical-device-regulation-oversight-united-states' target='_blank'>Read about Medical Device Policy</a>",
-        showarrow=False,
-        font=dict(size=12, color="blue"),
-        align="center",
-        xanchor="center",
-        yanchor="top"
-    )
-
-    fig.update_layout(
-        title='Events Over Time',
-        xaxis_title='Date',
-        yaxis_title='Number of Events',
-        legend=dict(x=0, y=1),
-        hovermode='x unified'
-    )
-
-    return fig
 
 # function to fetch recall data; filter is dict {col: value}
 def fetch_events(filters=None):
@@ -312,9 +198,9 @@ def main():
         # user selects the 'From' date
         date_from = st.date_input(
             "From",
-            value=max_date - timedelta(days=365*3),
+            value=max_date - timedelta(days=365*2),
             min_value=min_date,
-            max_value=max_date - timedelta(days=365*3)
+            max_value=max_date - timedelta(days=365*2)
         )
 
     # calculate the minimum 'To' date (2 years after 'From' date)
@@ -408,16 +294,9 @@ def main():
             st.plotly_chart(fig2)
         
         # time series chart
-        df['date_of_event'] = pd.to_datetime(df['date_of_event'], errors='coerce')
-        df = df[df['date_of_event'] >= pd.Timestamp('1902-01-01')]
-        monthly_counts = df.groupby(pd.Grouper(key='date_of_event', freq='M'), dropna=True).size().reset_index(name='count')
-        monthly_counts = monthly_counts.sort_values('date_of_event')
-        monthly_counts.set_index('date_of_event', inplace=True)
-        monthly_counts.index = pd.to_datetime(monthly_counts.index)
-
-        #combined_data, success = forecast(monthly_counts)
-        forecasted_data, forecasted = forecast(monthly_counts)
-        fig3 = plot_timeseries(forecasted_data, forecasted)
+        monthly_counts = build_forecast_data(df=df, date_field='date_of_event', freq='M')
+        forecasted_data, forecasted = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='M')
+        fig3 = plot_timeseries(df=forecasted_data, forecasted=forecasted, date_field='date_of_event', page='Events')
         st.plotly_chart(fig3)
         
         # data table with search and sort
