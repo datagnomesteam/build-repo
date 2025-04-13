@@ -195,7 +195,7 @@ def main():
             # pie chart for recall device_class
             fig1 = px.pie(
                 df, 
-                names='device_class', 
+                names='openfda_device_class', 
                 title='Recalls by Device Class',
                 color_discrete_sequence=px.colors.sequential.RdBu
             )

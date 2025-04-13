@@ -14,6 +14,9 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection, get_db_cursor
 from datetime import date
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+import plotly.graph_objects as go
+from dateutil.relativedelta import relativedelta
 
 sample_percent = 0.1
 
@@ -25,6 +28,118 @@ def get_database_connection():
     except Exception as e:
         st.error(f'Database connection error: {e}')
         return None
+    
+def forecast(monthly_counts):
+    # fit the Exponential Smoothing Model
+    try:
+        model = ExponentialSmoothing(monthly_counts['count'], trend='add', seasonal='add', seasonal_periods=12)
+    except ValueError:
+        combined_df = monthly_counts.reset_index()
+        combined_df['type'] = ['Actual'] * len(monthly_counts)
+        return combined_df, False
+    else:
+        fit = model.fit()
+
+        # generate Forecasts
+        forecast_periods = 24  # forecasting 24 months ahead
+        forecast_index = pd.date_range(start=monthly_counts.index[-1] + pd.DateOffset(months=1), periods=forecast_periods, freq='M')
+        forecast = fit.forecast(forecast_periods)
+        forecast_series = pd.Series(forecast, index=forecast_index)
+
+        # combine actual and forecasted Data
+        combined_series = pd.concat([monthly_counts['count'], forecast_series])
+        combined_df = combined_series.reset_index()
+        combined_df.columns = ['date_of_event', 'count']
+        combined_df['type'] = ['Actual'] * len(monthly_counts) + ['Forecast'] * forecast_periods
+        return combined_df, True
+
+def plot_timeseries(df, forecasted):
+    policy_changes = [
+        {'date': '1906-01-01', 'label': 'Pure Food and Drugs Act'},
+        {'date': '1938-01-01', 'label': 'Federal Food, Drug, and Cosmetic Act'},
+        {'date': '1944-01-01', 'label': 'Public Health Service Act'},
+        {'date': '1968-01-01', 'label': 'Radiation Control for Health and Safety Act'},
+        {'date': '1976-01-01', 'label': 'Medical Device Amendments to the FD&C Act'},
+        {'date': '1990-01-01', 'label': 'Safe Medical Devices Act'},
+        {'date': '1992-01-01', 'label': 'Mammography Quality Standards Act'},
+        {'date': '1997-01-01', 'label': 'FDA Modernization Act'},
+        {'date': '2002-01-01', 'label': 'Medical Device User Fee and Modernization Act'},
+        {'date': '2007-01-01', 'label': 'FDA Amendments Act'},
+        {'date': '2012-01-01', 'label': 'FDA Safety and Innovation Act'},
+        {'date': '2016-01-01', 'label': '21st Century Cures Act'},
+        {'date': '2017-01-01', 'label': 'FDA Reauthorization Act'},
+        {'date': '2020-01-01', 'label': 'Coronavirus Aid, Relief, and Economic Security Act'},
+        {'date': '2022-01-01', 'label': 'FDAUFRA; FDORA; PREVENT Pandemics Act'}
+    ]
+
+    # Filter policy changes to include only those within the data range
+    valid_policy_changes = [
+        policy for policy in policy_changes
+        if df['date_of_event'].min() <= pd.to_datetime(policy['date']) <= df['date_of_event'].max()
+    ]
+    
+    # plot with plotly
+    fig = go.Figure()
+
+    # plot actual data
+    fig.add_trace(go.Scatter(
+        x=df[df['type'] == 'Actual']['date_of_event'],
+        y=df[df['type'] == 'Actual']['count'],
+        mode='lines',
+        name='Actual',
+        line=dict(color='blue')
+    ))
+
+    if forecasted:
+        # plot forecasted data
+        fig.add_trace(go.Scatter(
+            x=df[df['type'] == 'Forecast']['date_of_event'],
+            y=df[df['type'] == 'Forecast']['count'],
+            mode='lines',
+            name='Forecast',
+            line=dict(color='red', dash='dash')
+        ))
+    
+    # add vertical lines for each valid policy change
+    for policy in valid_policy_changes:
+        fig.add_vline(
+            x=pd.to_datetime(policy['date']),
+            line_width=2,
+            line_dash="solid",
+            line_color="black"
+        )
+        fig.add_annotation(
+            x=pd.to_datetime(policy['date']),
+            y=df['count'].max(),
+            text=policy['label'],
+            showarrow=False,
+            font=dict(size=10, color="black"),
+            align="center"
+        )
+
+    # add a hyperlinked footer
+    fig.add_annotation(
+        x=-10,
+        y=0,
+        xref="paper",
+        yref="paper",
+        text="<a href='https://www.fda.gov/medical-devices/overview-device-regulation/history-medical-device-regulation-oversight-united-states' target='_blank'>Read about Medical Device Policy</a>",
+        showarrow=False,
+        font=dict(size=12, color="blue"),
+        align="center",
+        xanchor="center",
+        yanchor="top"
+    )
+
+    fig.update_layout(
+        title='Events Over Time',
+        xaxis_title='Date',
+        yaxis_title='Number of Events',
+        legend=dict(x=0, y=1),
+        hovermode='x unified'
+    )
+
+    return fig
 
 # function to fetch recall data; filter is dict {col: value}
 def fetch_events(filters=None):
@@ -63,7 +178,7 @@ def fetch_events(filters=None):
             REPEATABLE (200)
         )
         SELECT 
-            d.generic_name,
+            d.openfda_device_name,
             de.event_id,
             de.adverse_event_flag,
             de.date_facility_aware,
@@ -87,9 +202,9 @@ def fetch_events(filters=None):
         params = []
 
         if filters:
-            if filters.get('generic_name'):
-                where_clauses.append('d.generic_name ILIKE %s')
-                params.append(f'%{filters["generic_name"]}%')
+            if filters.get('openfda_device_name'):
+                where_clauses.append('d.openfda_device_name ILIKE %s')
+                params.append(f'%{filters["openfda_device_name"]}%')
             
             if filters.get('manufacturer_d_name'):
                 where_clauses.append('d.manufacturer_d_name ILIKE %s')
@@ -99,6 +214,10 @@ def fetch_events(filters=None):
                 where_clauses.append('de.date_of_event BETWEEN %s AND %s')
                 params.append(filters["date_from"])
                 params.append(filters["date_to"])
+
+            if filters.get('event_type'):
+                where_clauses.append('de.event_type ILIKE %s')
+                params.append(f'%{filters["event_type"]}%')
 
         if where_clauses:
             query += ' WHERE ' + ' AND '.join(where_clauses)
@@ -183,19 +302,37 @@ def main():
     # sidebar filters
     st.sidebar.header("Filters")
 
-    min_date = date(1947, 1, 1)
+    # define the minimum and maximum selectable dates
+    min_date = date(1945, 1, 1)
     max_date = date(2025, 1, 1)
-    
-    # date range filter
-    st.sidebar.subheader("Date Range")
+
     col1, col2 = st.sidebar.columns(2)
+
     with col1:
-        date_from = st.date_input("From", datetime.now() - timedelta(days=365),min_value=min_date, max_value=max_date)
+        # user selects the 'From' date
+        date_from = st.date_input(
+            "From",
+            value=max_date - timedelta(days=365*3),
+            min_value=min_date,
+            max_value=max_date - timedelta(days=365*3)
+        )
+
+    # calculate the minimum 'To' date (2 years after 'From' date)
+    min_to_date = max_date
+    if date_from + relativedelta(years=2) <= max_date:
+        min_to_date = date_from + relativedelta(years=2)
+
     with col2:
-        date_to = st.date_input("To", max_date,min_value=min_date, max_value=max_date)
+        # user selects the 'to' date with adjusted constraints
+        date_to = st.date_input(
+            "To",
+            value=min_to_date,
+            min_value=min_to_date,
+            max_value=max_date
+        )
     
     # text filters
-    device_name = st.sidebar.text_input("Device Name (Generic)")
+    device_name = st.sidebar.text_input("Device Name")
     recalling_firm = st.sidebar.text_input("Manufacturer")
     
     # event type filters
@@ -274,25 +411,24 @@ def main():
         df['date_of_event'] = pd.to_datetime(df['date_of_event'], errors='coerce')
         df = df[df['date_of_event'] >= pd.Timestamp('1902-01-01')]
         monthly_counts = df.groupby(pd.Grouper(key='date_of_event', freq='M'), dropna=True).size().reset_index(name='count')
+        monthly_counts = monthly_counts.sort_values('date_of_event')
+        monthly_counts.set_index('date_of_event', inplace=True)
+        monthly_counts.index = pd.to_datetime(monthly_counts.index)
 
-        fig3 = px.line(
-            monthly_counts, 
-            x='date_of_event', 
-            y='count', 
-            title='Recalls Over Time',
-            labels={'date_of_event': 'Date', 'count': 'Number of Recalls'}
-        )
+        #combined_data, success = forecast(monthly_counts)
+        forecasted_data, forecasted = forecast(monthly_counts)
+        fig3 = plot_timeseries(forecasted_data, forecasted)
         st.plotly_chart(fig3)
         
         # data table with search and sort
-        st.subheader("100 Most Revent Recall Details")
+        st.subheader("100 Most Revent Event Details")
         st.dataframe(
             df.drop(columns=['event_id']).sort_values('date_of_event', ascending=False)[:100],
             use_container_width=True
         )
         
     else:
-        st.info("No recalls found with the selected filters.")
+        st.info("No events found with the selected filters.")
 
 if __name__ == "__main__":
     main()
