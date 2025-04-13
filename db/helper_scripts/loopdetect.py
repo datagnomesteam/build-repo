@@ -6,14 +6,19 @@ def load_mapping(file_path):
         data = json.load(f)
     
     graph = defaultdict(list)
+    all_nodes = set()
 
     for op in data:
         for entry in op['edits']:
-            to_value = entry['to']
+            to_value = entry['to'].strip().lower()
             for from_value in entry['from']:
-                graph[from_value.lower()].append(to_value.lower())  # case-insensitive
+                from_value = from_value.strip().lower()
+                if from_value != to_value:  # skip redundant self-maps
+                    graph[from_value].append(to_value)
+                    all_nodes.add(from_value)
+                    all_nodes.add(to_value)
 
-    return graph
+    return graph, all_nodes
 
 def find_all_cycles(graph):
     visited = set()
@@ -47,43 +52,36 @@ def find_all_cycles(graph):
 
     return [list(cycle) for cycle in all_cycles]
 
-def find_longest_path(graph):
-    visited = set()
-    max_hops = 0
 
-    def dfs(node, path, stack):
-        nonlocal max_hops
-        visited.add(node)
-        stack.add(node)
-        path.append(node)
+def find_longest_path(graph, all_nodes):
+    memo = {}
+
+    def dfs(node, visiting):
+        if node in memo:
+            return memo[node]
+        if node in visiting:
+            # Cycle detected
+            return 0
+
+        visiting.add(node)
+        max_len = 0
 
         for neighbor in graph.get(node, []):
-            if neighbor in stack:
-                # Found a cycle — slice the path to get the cycle
-                cycle_start = path.index(neighbor)
-                cycle = path[cycle_start:]
-                
-                # Calculate the number of hops in the cycle (distance from start to finish)
-                hop_count = len(cycle)
-                
-                # Update max_hops if this is the largest path length seen
-                if hop_count > max_hops:
-                    max_hops = hop_count
-            elif neighbor not in visited:
-                dfs(neighbor, path, stack)
+            max_len = max(max_len, dfs(neighbor, visiting))
 
-        stack.remove(node)
-        path.pop()
+        visiting.remove(node)
+        memo[node] = 1 + max_len
+        return memo[node]
 
-    for node in graph:
-        if node not in visited:
-            dfs(node, [], set())
+    longest = 0
+    for node in all_nodes:
+        longest = max(longest, dfs(node, set()))
 
-    return max_hops
+    return longest
 
 # Example usage
 if __name__ == "__main__":
-    graph = load_mapping("openrefine.json")
+    graph, all_nodes = load_mapping("openrefine.json")
     cycles = find_all_cycles(graph)
     if cycles:
         print(f"🔁 {len(cycles)} loop(s) detected:")
@@ -92,9 +90,7 @@ if __name__ == "__main__":
     else:
         print("✅ No cycles found.")
     
-    max_hops = find_longest_path(graph)
+    max_hops = find_longest_path(graph, all_nodes)
 
-    if max_hops:
-        print(f"Maximum hops required to reach the final value in the cycle: {max_hops}")
-    else:
-        print("✅ No cycles found.")
+
+    print(f"Maximum hops required to reach the final value in the cycle: {max_hops}")
