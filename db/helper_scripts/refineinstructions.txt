@@ -1,0 +1,28 @@
+1. Execute clustering in openrefine
+
+2. Export json of steps performed
+
+3. Copy steps into openrefine.json
+
+4. Execute refine.py which will convert the json into a flat file for import into PSQL
+
+5. Add table for name conversion
+
+CREATE TABLE name_mapping (
+    original_name TEXT,
+    normalized_name TEXT
+);
+
+6. Backup original column
+
+ALTER TABLE device ADD COLUMN manufacturer_d_name_original TEXT;
+UPDATE device SET manufacturer_d_name_original = manufacturer_d_name;
+
+7. Modify column with clustered values
+
+UPDATE device t
+SET manufacturer_d_name = nm.normalized_name
+FROM name_mapping nm
+WHERE t.manufacturer_d_name = nm.original_name
+  AND t.manufacturer_d_name IS DISTINCT FROM nm.normalized_name;
+
