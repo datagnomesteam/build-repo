@@ -45,7 +45,7 @@ def fetch_events(filters=None):
         total_rows = cur.fetchone()['total']
 
     # Step 2: Calculate the sample percentage (for approx 500k rows)
-    target_count = 500000
+    target_count = 50000 #TODO: change back to 500k after testing
     sample_percent = min(100.0, max(0.01, (target_count / total_rows) * 100))
     sample_percent = round(sample_percent, 2)
     
@@ -240,6 +240,10 @@ def main():
         
         df = fetch_events(filters)
     else:
+        filters = {
+            'date_from': min_date,
+            'date_to': max_date
+        }
         df = fetch_events()
     
     # display data and visualizations
