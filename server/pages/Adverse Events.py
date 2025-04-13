@@ -46,9 +46,8 @@ def fetch_events(filters=None):
 
     # Step 2: Calculate the sample percentage (for approx 500k rows)
     target_count = 500000
-    sample_percent = min(100.0, max(0.01, (target_count*4 / total_rows) * 100))
+    sample_percent = min(100.0, max(0.01, (target_count / total_rows) * 100))
     sample_percent = round(sample_percent, 2)
-    st.write(sample_percent)
     
     try:
         query = f"""

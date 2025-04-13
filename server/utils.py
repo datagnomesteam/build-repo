@@ -89,15 +89,17 @@ def plot_timeseries(df, forecasted, date_field, page):
             x=pd.to_datetime(policy['date']),
             line_width=2,
             line_dash="solid",
-            line_color="black"
+            line_color="white"
         )
         fig.add_annotation(
             x=pd.to_datetime(policy['date']),
             y=df['count'].max(),
             text=policy['label'],
             showarrow=False,
-            font=dict(size=10, color="black"),
-            align="center"
+            font=dict(size=10, color="white"),
+            xanchor='left',
+            textangle=-30,
+            yshift=150
         )
 
     # add a hyperlinked footer
