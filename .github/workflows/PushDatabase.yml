@@ -21,6 +21,7 @@ jobs:
       DOCKER_BUILDKIT: 1
       ACTIONS_STEP_DEBUG: true
       ACTIONS_RUNNER_DEBUG: true
+      CLEAN_OLD_TAGS: false
 
     steps:
       - name: Check the initial disk space
@@ -88,6 +89,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Clean up old Docker images on Docker Hub
+        if: ${{ env.CLEAN_OLD_TAGS == 'true' }}
         run: |
           echo "Attempting to remove 'latest' tag from Docker Hub..."
           TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
@@ -125,3 +127,8 @@ jobs:
           sudo docker image prune -af || true
           echo "Final disk space:"
           df -h
+
+      - name: README!
+        run: |
+          echo "Find the latest image at: https://hub.docker.com/r/datagnomesteam/project_database"
+

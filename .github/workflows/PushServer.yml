@@ -19,6 +19,7 @@ jobs:
       OFFICIAL_TAG: datagnomesteam/project_server:latest
       MAIN_REPO_NAME: datagnomesteam/project_server
       DOCKERFILE_PATH: ./server
+      CLEAN_OLD_TAGS: false
 
     steps:
       - name: Checkout code
@@ -51,6 +52,7 @@ jobs:
           echo "$docker_password" | docker login -u "$docker_username" --password-stdin
 
       - name: Clean up old Docker images
+        if: ${{ env.CLEAN_OLD_TAGS == 'true' }}
         run: |
           TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\": \"${{ env.DOCKERHUB_USERNAME }}\", \"password\": \"$(cat docker-credentials.txt)\"}" https://hub.docker.com/v2/users/login/ | jq -r .token)
 
@@ -104,3 +106,7 @@ jobs:
 
           docker builder prune -af || true
           docker image prune -af || true
+
+      - name: README!
+        run: |
+          echo "Find the latest image at: https://hub.docker.com/r/datagnomesteam/project_server"
