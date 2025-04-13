@@ -26,3 +26,5 @@ FROM name_mapping nm
 WHERE t.manufacturer_d_name = nm.original_name
   AND t.manufacturer_d_name IS DISTINCT FROM nm.normalized_name;
 
+
+Note: loopdetect.py will tell you if there are loops and how many times you need run the SQL query before it converges. 
