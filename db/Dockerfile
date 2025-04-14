@@ -7,7 +7,6 @@ RUN apt-get update && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/*
 
-# Environment variables
 ENV PGDATA=/var/lib/postgresql/data
 ENV POSTGRES_DB=datastore
 
