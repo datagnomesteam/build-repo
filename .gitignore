@@ -115,3 +115,5 @@ swapfile.*
 .secrets
 allCountries.txt
 allCountries.zip
+index.html
+robots.txt
