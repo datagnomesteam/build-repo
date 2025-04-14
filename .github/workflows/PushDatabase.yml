@@ -135,11 +135,11 @@ jobs:
       - name: Send Discord alert on failure
         if: failure()
         run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
             -H "Content-Type: application/json" \
             -d '{
               "username": "GitHub Actions",
               "avatar_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-              "content": "🚨 **GitHub Action Failed!**\nRepository: `${{ github.repository }}`\nBranch: `${{ github.ref_name }}`\nCommit: `${{ github.sha }}`\n[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              "content": "🚨 Workflow `${{ github.workflow }}` failed at commit '"$SHORT_SHA"'"
             }'
-
