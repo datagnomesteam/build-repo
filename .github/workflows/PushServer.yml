@@ -70,6 +70,11 @@ jobs:
           # Force remove the latest tag if it exists
           curl -s -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/"
 
+      - name: Prepare DockerHub credentials for description update
+        working-directory: ${{ github.workspace }}
+        run: |
+          aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip -o server/allCountries.zip
+
       - name: Build and push Docker images
         uses: docker/build-push-action@v6
         with:
