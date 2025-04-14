@@ -70,14 +70,6 @@ jobs:
           # Force remove the latest tag if it exists
           curl -s -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/"
 
-      - name: Download and extract allCountries.txt
-        working-directory: /tmp
-        run: |
-          mkdir -p allCnd
-          aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip -o allCnd/allCountries.zip
-          unzip allCnd/allCountries.zip -d allCnd
-          cp allCnd/allCountries.txt ${{ github.workspace }}/server/
-
       - name: Build and push Docker images
         uses: docker/build-push-action@v6
         with:

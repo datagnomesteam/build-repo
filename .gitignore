@@ -113,4 +113,5 @@ db/pg.sql
 dataset_url.txt
 swapfile.*
 .secrets
-server/allCountries.txt
+allCountries.txt
+allCountries.zip

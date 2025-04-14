@@ -9,6 +9,8 @@ RUN apt-get update && \
     procps \
     curl \
     dos2unix \
+    aria2 \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Java home for PySpark - use a more portable way to find Java
@@ -17,7 +19,6 @@ ENV JAVA_HOME=/usr/lib/jvm/default-java
 
 # Copy requirements file
 COPY requirements.txt .
-COPY allCountries.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt && \
@@ -25,6 +26,11 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 # Copy application code
 COPY . .
+
+# Download and extract allCountries.txt directly to current directory
+RUN aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip && \
+    unzip allCountries.zip && \
+    rm allCountries.zip
 
 # Convert line endings to Unix format (important for scripts when developed on Windows)
 RUN dos2unix /app/entrypoint.sh && chmod +x /app/entrypoint.sh
