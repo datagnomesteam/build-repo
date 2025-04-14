@@ -120,5 +120,5 @@ jobs:
             -d '{
               "username": "GitHub Actions",
               "avatar_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-              "content": "🚨 Workflow `${{ github.workflow }}` failed at commit '"$SHORT_SHA"'"
+              "content": "**🚨 GitHub Action Failed!**\n\nWorkflow Name: `${{ github.workflow }}`\nCommit: `'"$SHORT_SHA"'`\n[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             }'
