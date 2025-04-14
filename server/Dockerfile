@@ -17,6 +17,7 @@ ENV JAVA_HOME=/usr/lib/jvm/default-java
 
 # Copy requirements file
 COPY requirements.txt .
+COPY allCountries.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt && \

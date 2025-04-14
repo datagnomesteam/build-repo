@@ -15,6 +15,8 @@ from db_info import get_db_connection
 from utils import build_forecast_data, forecast, plot_timeseries
 from datetime import date
 from dateutil.relativedelta import relativedelta
+import pycountry
+import pydeck as pdk
 
 sample_percent = 0.1
 
@@ -174,6 +176,12 @@ def get_event_stats():
     finally:
         conn.close()
 
+def get_country_code(name):
+    try:
+        return pycountry.countries.lookup(name).alpha_2
+    except LookupError:
+        return None
+
 # app layout and functionality
 def main():
     st.set_page_config(
@@ -309,6 +317,94 @@ def main():
             use_container_width=True
         )
         
+        names = ["country code", "postal code", "place name", "admin name1", "admin code1", "admin name2", "admin code2", "admin name3", "admin code3", "latitude", "longitude", "accuracy"]
+        zips = pd.read_csv('allCountries.txt',header=None, names=names,delimiter='\t')
+
+        df['country code'] = df['manufacturer_d_country'].str.upper()
+        df['postal code'] = df['manufacturer_d_postal_code'].astype(str).str.strip()
+        zips['postal code'] = zips['postal code'].astype(str).str.strip()
+
+        merged = pd.merge(
+            df,
+            zips[['country code', 'postal code', 'latitude', 'longitude']],
+            on=['country code', 'postal code'],
+            how='inner'
+        )
+        # Filter out rows with invalid lat/lon (e.g., NaN, 0, or out-of-bound values)
+        merged = merged[(merged['latitude'].notna()) & 
+                            (merged['longitude'].notna()) & 
+                            (merged['latitude'] >= -90) & 
+                            (merged['latitude'] <= 90) &
+                            (merged['longitude'] >= -180) & 
+                            (merged['longitude'] <= 180)]
+
+
+        data = merged[['latitude', 'longitude']].rename(columns={
+                'latitude': 'lat',
+                'longitude': 'lon'
+            })
+        
+        data = data.dropna(subset=['lat', 'lon']).reset_index(drop=True)
+
+        
+
+
+        # Let the user pick a zoom level via slider (simulated zoom control)
+        zoom_level = st.slider("Simulated Zoom Level", min_value=6, max_value=16, value=12)
+
+        # Function to compute hex radius based on zoom level
+        def zoom_to_radius(zoom):
+            return int(20000 / (2 ** (zoom - 8)))
+
+        radius = zoom_to_radius(zoom_level)
+        st.write(f"🔍 Hex Radius: {radius} meters")
+
+        # Define a custom color range with 10 intensity levels
+        color_range = [
+            [255, 255, 204],
+            [255, 237, 160],
+            [254, 217, 118],
+            [254, 178, 76],
+            [253, 141, 60],
+            [252, 78, 42],
+            [227, 26, 28],
+            [189, 0, 38],
+            [128, 0, 38],
+            [77, 0, 75]
+        ]
+
+        # -- Create HexagonLayer --
+        layer = pdk.Layer(
+            'HexagonLayer',
+            data,
+            get_position='[lon, lat]',
+            auto_highlight=True,
+            elevation_scale=50,
+            pickable=True,
+            elevation_range=[0, 1000],
+            extruded=True,
+            coverage=1,
+            radius=radius,
+            color_aggregation='sum',
+            color_range=color_range,
+        )
+
+        # --- View state ---
+        view_state = pdk.ViewState(
+            zoom=zoom_level,
+            pitch=40,
+            latitude=data['lat'].mean(),
+            longitude=data['lon'].mean(),  
+        )
+
+        # --- Show map ---
+        st.pydeck_chart(pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+            tooltip={"text": "Count: {elevationValue}"}
+        ))
+
+
     else:
         st.info("No events found with the selected filters.")
 
