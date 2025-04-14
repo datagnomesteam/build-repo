@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install System Dependencies
-        run: sudo apt-get update && sudo apt-get install -y jq curl
+        run: sudo apt-get update && sudo apt-get install -y jq curl unzip
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -70,10 +70,13 @@ jobs:
           # Force remove the latest tag if it exists
           curl -s -X DELETE -H "Authorization: JWT ${TOKEN}" "https://hub.docker.com/v2/repositories/${{ env.MAIN_REPO_NAME }}/tags/latest/"
 
-      - name: Prepare DockerHub credentials for description update
-        working-directory: ${{ github.workspace }}
+      - name: Download and extract allCountries.txt
+        working-directory: /tmp
         run: |
-          aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip -o server/allCountries.zip
+          mkdir -p /tmp/allCnd
+          aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip -o /tmp/allCnd/allCountries.zip
+          unzip /tmp/allCnd/allCountries.zip -d /tmp/allCnd
+          cp /tmp/allCnd/allCountries.txt ${{ github.workspace }}/server/
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v6
