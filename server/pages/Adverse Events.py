@@ -15,7 +15,6 @@ from db_info import get_db_connection
 from utils import build_forecast_data, forecast, plot_timeseries
 from datetime import date
 from dateutil.relativedelta import relativedelta
-import pycountry
 import pydeck as pdk
 
 sample_percent = 0.1
@@ -175,12 +174,6 @@ def get_event_stats():
         return {}
     finally:
         conn.close()
-
-def get_country_code(name):
-    try:
-        return pycountry.countries.lookup(name).alpha_2
-    except LookupError:
-        return None
 
 # app layout and functionality
 def main():
