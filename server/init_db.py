@@ -12,6 +12,7 @@ def create_database():
     conn.autocommit = True
     cursor = conn.cursor()
 
+
     # sanity check - drop database
     cursor.execute(f"DROP DATABASE {get_db_config()['database']} WITH (FORCE)") # clear database if exists
     

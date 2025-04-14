@@ -12,8 +12,6 @@ ENV POSTGRES_DB=datastore
 
 # Create locales
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
-
-# Set the locale environment variables
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
