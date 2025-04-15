@@ -32,7 +32,12 @@ if [ -z "$DOCKERHUB_TOKEN" ] || [ -z "$DATASET_URL" ]; then
 fi
 
 # Create and enable swap
-#echo "Setting up swap space..."
+# Remove existing swapfile if it exists
+if [ -f /swapfile ]; then
+    echo "/swapfile exists. Removing it before creating a new one..."
+    sudo swapoff /swapfile || true
+    sudo rm /swapfile
+fi
 sudo fallocate -l $SWAP_SIZE /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
