@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-push:
     timeout-minutes: 60
-    runs-on: ubuntu-22.04
+    runs-on: debian:bookworm-slim
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
