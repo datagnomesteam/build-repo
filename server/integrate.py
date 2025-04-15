@@ -74,7 +74,6 @@ def fetch_table(conn, table):
     target_count = 500000 #TODO: change back to 500k after testing
     sample_percent = min(100.0, max(0.01, (target_count / total_rows) * 100))
     sample_percent = round(sample_percent, 2)
-    sample_percent = 1.0
     
     try:
         query = f"""
