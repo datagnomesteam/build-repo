@@ -267,7 +267,6 @@ jobs:
       - name: Prepare /mnt
         run: |
           echo "Cleaning up /mnt and creating fresh structure..."
-          sudo rm -rf /mnt/*
           sudo find /mnt -mindepth 1 -delete 2>/dev/null || true
           sudo mkdir -p /mnt/myworkspace
           sudo chmod -R 777 /mnt
