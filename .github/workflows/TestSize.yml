@@ -1,4 +1,4 @@
-name: Push Database To Dockerhub
+name: Test out Maximum Size
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  test-maxisize:
     timeout-minutes: 60
     runs-on: ubuntu-22.04
     env:
@@ -265,19 +265,35 @@ jobs:
             network=host
             image=moby/buildkit:master
             memory=6g
+            buildkitd-flags=--oci-worker-gc-keepstorage=100000
 
       - name: See mount
         run: |
+            sudo chmod -R 777 /mnt
             ls -a /mnt/myworkspace
+
+      - name: Remove all files
+        run: |
+            echo "Removing all files and directories from /mnt..."
+            sudo rm -rf /mnt/*
+            sudo rm -rf /mnt/.* 2>/dev/null || true
+            echo "Verifying /mnt is empty..."
+            ls -la /mnt
+            echo "Creating fresh /mnt directory structure..."
+            sudo mkdir -p /mnt/myworkspace
+            sudo chmod -R 777 /mnt
 
       - name: Copy Directory
         run: |
-            sudo mkdir -p /mnt/myworkspace
-            sudo chmod -R 777 /mnt/myworkspace
+            mkdir -p /mnt/myworkspace
             cp -R ${{ github.workspace }}/* /mnt/myworkspace/
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_INLINE_CACHE: 1
+          BUILDKIT_CACHE_DIR: /mnt/buildkit-cache
         with:
           context: /mnt/myworkspace/db
           file: /mnt/myworkspace/db/Dockerfile
@@ -287,6 +303,10 @@ jobs:
           provenance: false
           secrets: |
             dataset_url=${{ secrets.DATASET_URL }}
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+          cache-from: type=local,src=/mnt/buildkit-cache
+          cache-to: type=local,dest=/mnt/buildkit-cache,mode=max
 
       - name: Check disk space
         run: df -h
