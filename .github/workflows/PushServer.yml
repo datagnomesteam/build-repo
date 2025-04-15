@@ -77,7 +77,7 @@ jobs:
           file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.OFFICIAL_TAG }},slim
+          tags: ${{ env.OFFICIAL_TAG }}
 
       - name: Prepare DockerHub credentials for description update
         run: |

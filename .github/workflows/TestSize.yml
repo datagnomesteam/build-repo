@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '.github/workflows/TestSize.yml.hold'
   workflow_dispatch:
 
 jobs:
@@ -264,7 +266,11 @@ jobs:
             image=moby/buildkit:master
             memory=6g
 
-      - name: Copy Directory to minutes
+      - name: See mount
+        run: |
+            ls -a /mnt/myworkspace
+
+      - name: Copy Directory
         run: |
             sudo mkdir -p /mnt/myworkspace
             sudo chmod -R 777 /mnt/myworkspace
