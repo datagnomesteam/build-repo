@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-push:
     timeout-minutes: 60
-    runs-on: debian:bookworm-slim
+    runs-on: ubuntu-22.04
     env:
       DOCKERHUB_USERNAME: datagnomesteam
       MAIN_REPO_NAME: datagnomesteam/project_database
@@ -32,30 +32,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android* /usr/local/lib/android-sdk*
           unset ANDROID_HOME ANDROID_NDK ANDROID_NDK_HOME ANDROID_SDK_ROOT
 
-          # --- Force removal of nonessential packages ---
-          echo "Forcibly removing nonessential packages..."
-          packages=(
-            # Programming Languages and Runtimes
-            "php" "composer" "phpunit" "python3" "python-is-python3" "nodejs" "npm" "ruby" "perl" "julia" "kotlin" "mono" "msbuild"
-            
-            # Build Tools & Project Management
-            "ant" "gradle" "maven" "sbt" "leiningen"
-
-            # Haskell Toolchain
-            "cabal-install" "ghc" "ghcup" "stack"
-
-            # Rust Toolchain
-            "rustc" "cargo" "rust-docs" "rustfmt"
-
-            # CLI tools and miscellaneous nonessential utilities
-            "ansible" "apt-fast" "azcopy" "bazel" "bicep" "buildah" "cmake" "codeql" "docker-compose" "docker-buildx" "fastlane" "git-ftp" "haveged" "heroku" "jq" "kind" "kubectl" "kustomize" "mediainfo" "mercurial" "minikube" "nvm" "packer" "parcel" "podman" "pulumi" "skopeo" "sphinxsearch" "svn" "terraform" "yamllint" "yq" "zstd" "ninja"
-          )
-          
-          for pkg in "${packages[@]}"; do
-            echo "Attempting to force-remove package: $pkg"
-            sudo dpkg --purge --force-depends "$pkg" || echo "Failed to remove package: $pkg, continuing..."
-          done
-
           # --- Remove extra directories ---
           echo "Removing extra directories (Miniconda, Homebrew, toolchain dirs)..."
           sudo rm -rf /usr/share/miniconda /home/linuxbrew "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
@@ -67,6 +43,22 @@ jobs:
 
           echo "Build space maximization complete. Current disk space:"
           df -h
+
+      - name: Check disk space
+        run: df -h
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+            # this might remove tools that are actually needed,
+            # if set to "true" but frees about 6 GB
+            tool-cache: false
+            android: false
+            dotnet: false
+            haskell: false
+            large-packages: false
+            docker-images: false
+            swap-storage: false
 
       - name: Check disk space
         run: df -h
