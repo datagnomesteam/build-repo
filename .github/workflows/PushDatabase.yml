@@ -106,7 +106,7 @@ jobs:
           file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.MAIN_REPO_NAME }}:latest
+          tags: ${{ env.MAIN_REPO_NAME }}:latest,${{ env.MAIN_REPO_NAME }}:slim
           provenance: false
 
       - name: Update repo description
