@@ -62,31 +62,29 @@ jobs:
           # --- Remove optional language runtimes and development tools ---
           # Do NOT remove core packages such as python3 or perl since many system tools depend on them.
           echo "Removing optional packages (non-critical for Docker builds)..."
-          sudo apt-get remove -y --purge \
-              'php*' \
-              composer \
-              'phpunit*' \
-              'ruby*' \
-              'julia*' \
-              'kotlin*' \
-              'mono*' \
-              'msbuild*' \
-              ant \
-              gradle \
-              'maven*' \
-              'sbt*' \
-              'leiningen*' || true
+          sudo apt-get remove -y --purge 'php*' || true
+          sudo apt-get remove -y --purge composer || true
+          sudo apt-get remove -y --purge 'phpunit*' || true
+          sudo apt-get remove -y --purge 'ruby*' || true
+          sudo apt-get remove -y --purge 'julia*' || true
+          sudo apt-get remove -y --purge 'kotlin*' || true
+          sudo apt-get remove -y --purge 'mono*' || true
+          sudo apt-get remove -y --purge 'msbuild*' || true
+          sudo apt-get remove -y --purge ant || true
+          sudo apt-get remove -y --purge gradle || true
+          sudo apt-get remove -y --purge 'maven*' || true
+          sudo apt-get remove -y --purge 'sbt*' || true
+          sudo apt-get remove -y --purge 'leiningen*' || true
 
           # --- Remove optional CLI and build tools ---
-          sudo apt-get remove -y --purge \
-              buildah \
-              podman \
-              git-ftp \
-              haveged \
-              jq \
-              kubectl \
-              skopeo \
-              sphinxsearch || true
+          sudo apt-get remove -y --purge buildah || true
+          sudo apt-get remove -y --purge podman || true
+          sudo apt-get remove -y --purge git-ftp || true
+          sudo apt-get remove -y --purge haveged || true
+          sudo apt-get remove -y --purge jq || true
+          sudo apt-get remove -y --purge kubectl || true
+          sudo apt-get remove -y --purge skopeo || true
+          sudo apt-get remove -y --purge sphinxsearch || true
 
           # --- Cleanup package files ---
           echo "Cleaning up package caches..."
@@ -134,31 +132,29 @@ jobs:
           # --- Remove optional language runtimes and development tools ---
           # Do NOT remove core packages such as python3 or perl since many system tools depend on them.
           echo "Removing optional packages (non-critical for Docker builds)..."
-          sudo apt-get remove -y --purge \
-              'php*' \
-              composer \
-              'phpunit*' \
-              'ruby*' \
-              'julia*' \
-              'kotlin*' \
-              'mono*' \
-              'msbuild*' \
-              ant \
-              gradle \
-              'maven*' \
-              'sbt*' \
-              'leiningen*'
+          sudo apt-get remove -y --purge 'php*' || true
+          sudo apt-get remove -y --purge composer || true
+          sudo apt-get remove -y --purge 'phpunit*' || true
+          sudo apt-get remove -y --purge 'ruby*' || true
+          sudo apt-get remove -y --purge 'julia*' || true
+          sudo apt-get remove -y --purge 'kotlin*' || true
+          sudo apt-get remove -y --purge 'mono*' || true
+          sudo apt-get remove -y --purge 'msbuild*' || true
+          sudo apt-get remove -y --purge ant || true
+          sudo apt-get remove -y --purge gradle || true
+          sudo apt-get remove -y --purge 'maven*' || true
+          sudo apt-get remove -y --purge 'sbt*' || true
+          sudo apt-get remove -y --purge 'leiningen*' || true
 
           # --- Remove optional CLI and build tools ---
-          sudo apt-get remove -y --purge \
-              buildah \
-              podman \
-              git-ftp \
-              haveged \
-              jq \
-              kubectl \
-              skopeo \
-              sphinxsearch
+          sudo apt-get remove -y --purge buildah || true
+          sudo apt-get remove -y --purge podman || true
+          sudo apt-get remove -y --purge git-ftp || true
+          sudo apt-get remove -y --purge haveged || true
+          sudo apt-get remove -y --purge jq || true
+          sudo apt-get remove -y --purge kubectl || true
+          sudo apt-get remove -y --purge skopeo || true
+          sudo apt-get remove -y --purge sphinxsearch || true
 
           # --- Cleanup package files ---
           echo "Cleaning up package caches..."
