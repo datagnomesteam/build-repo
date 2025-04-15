@@ -36,6 +36,11 @@ jobs:
           echo "Removing extra directories (Miniconda, Homebrew, toolchain dirs)..."
           sudo rm -rf /usr/share/miniconda /home/linuxbrew "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
 
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/lib/jvm || true
+          sudo rm -rf /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
+          sudo docker image prune --all --force || true
+          sudo apt-get purge -y '^ghc-.*' '^dotnet-.*' '^aspnetcore-.*' '^mysql-.*' '^php.*' azure-cli google-cloud-cli hhvm google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri || true
+
           # --- Clean up ---
           echo "Cleaning up apt caches..."
           sudo apt-get autoremove -y
