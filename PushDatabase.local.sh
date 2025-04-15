@@ -19,7 +19,7 @@ fi
 DOCKERHUB_USERNAME="datagnomesteam"
 REPO_NAME="datagnomesteam/project_database"
 DOCKERFILE_PATH="db"
-MEMORY_LIMIT="6G"  # Reduced for Raspberry Pi
+MEMORY_LIMIT="2G"  # Reduced for Raspberry Pi
 SWAP_SIZE="100G"     # Add swap space
 
 docker system prune -af --volumes
