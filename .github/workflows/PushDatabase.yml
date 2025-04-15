@@ -108,8 +108,6 @@ jobs:
           push: true
           tags: ${{ env.MAIN_REPO_NAME }}:latest
           provenance: false
-          secrets: |
-            dataset_url=${{ secrets.DATASET_URL_SLIM }}
 
       - name: Update repo description
         uses: peter-evans/dockerhub-description@v4
