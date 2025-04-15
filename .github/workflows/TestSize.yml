@@ -75,7 +75,7 @@ jobs:
               gradle \
               'maven*' \
               'sbt*' \
-              'leiningen*'
+              'leiningen*' || true
 
           # --- Remove optional CLI and build tools ---
           sudo apt-get remove -y --purge \
@@ -83,11 +83,10 @@ jobs:
               podman \
               git-ftp \
               haveged \
-              heroku \
               jq \
               kubectl \
               skopeo \
-              sphinxsearch
+              sphinxsearch || true
 
           # --- Cleanup package files ---
           echo "Cleaning up package caches..."
@@ -156,7 +155,6 @@ jobs:
               podman \
               git-ftp \
               haveged \
-              heroku \
               jq \
               kubectl \
               skopeo \
