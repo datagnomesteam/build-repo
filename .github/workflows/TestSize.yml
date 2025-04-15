@@ -49,6 +49,60 @@ jobs:
           echo "Build space maximization complete. Current disk space:"
           df -h
 
+      - name: Maximize build space
+        run: |
+          set -e
+          echo "Starting build space maximization..."
+
+          # --- Remove Android components ---
+          echo "Removing Android SDK and related directories..."
+          sudo rm -rf /usr/local/lib/android* /usr/local/lib/android-sdk*
+          unset ANDROID_HOME ANDROID_NDK ANDROID_NDK_HOME ANDROID_SDK_ROOT
+
+          # --- Remove optional language runtimes and development tools ---
+          # Do NOT remove core packages such as python3 or perl since many system tools depend on them.
+          echo "Removing optional packages (non-critical for Docker builds)..."
+          sudo apt-get remove -y --purge \
+              'php*' \
+              composer \
+              'phpunit*' \
+              'ruby*' \
+              'julia*' \
+              'kotlin*' \
+              'mono*' \
+              'msbuild*' \
+              ant \
+              gradle \
+              'maven*' \
+              'sbt*' \
+              'leiningen*'
+
+          # --- Remove optional CLI and build tools ---
+          sudo apt-get remove -y --purge \
+              buildah \
+              podman \
+              git-ftp \
+              haveged \
+              heroku \
+              jq \
+              kubectl \
+              skopeo \
+              sphinxsearch
+
+          # --- Cleanup package files ---
+          echo "Cleaning up package caches..."
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+
+          # --- Remove extra directories not managed by apt ---
+          echo "Removing extra directories (Miniconda, Homebrew, toolchain dirs)..."
+          sudo rm -rf /usr/share/miniconda /home/linuxbrew "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
+
+          echo "Current disk space:"
+          df -h
+
+          echo "Build space maximized."
+
       - name: Check disk space
         run: df -h
 
