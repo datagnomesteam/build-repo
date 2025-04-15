@@ -16,7 +16,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection, get_db_cursor
 from integrate import integrate
-from configs import sources, pivot_cols, canonicals, mappings
+from integrate_configs import sources, pivot_cols, canonicals, mappings
 import gc
 
 
