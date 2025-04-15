@@ -258,23 +258,39 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+      - name: Create local Docker cache volume
+        run: |
+          mkdir -p /mnt/docker-cache
+          docker volume create \
+            --driver local \
+            --opt type=none \
+            --opt device=/mnt/docker-cache \
+            --opt o=bind \
+            buildx-cache
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker
-          buildkitd-flags: --root /mnt/buildkit
 
-      - name: Prepare /mnt
+      - name: See mount
         run: |
-          echo "Cleaning up /mnt and creating fresh structure..."
-          sudo rm -rf /mnt/*
-          sudo find /mnt -mindepth 1 -delete 2>/dev/null || true
-          sudo mkdir -p /mnt/myworkspace
-          sudo chmod -R 777 /mnt
+            sudo chmod -R 777 /mnt
+            ls -a /mnt/myworkspace
 
-      - name: Copy workspace to /mnt
+      - name: Remove all files
         run: |
-          cp -R ${{ github.workspace }}/* /mnt/myworkspace/
+            echo "Removing all files and directories from /mnt..."
+            sudo rm -rf /mnt/*
+            sudo rm -rf /mnt/.* 2>/dev/null || true
+            echo "Verifying /mnt is empty..."
+            ls -la /mnt
+            echo "Creating fresh /mnt directory structure..."
+            sudo mkdir -p /mnt/myworkspace
+            sudo chmod -R 777 /mnt
+
+      - name: Copy Directory
+        run: |
+            mkdir -p /mnt/myworkspace
+            cp -R ${{ github.workspace }}/* /mnt/myworkspace/
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
@@ -282,16 +298,9 @@ jobs:
           context: /mnt/myworkspace/db
           file: /mnt/myworkspace/db/Dockerfile
           platforms: linux/arm64
-          push: false
-          tags: ${{ env.MAIN_REPO_NAME }}:latest
-          provenance: false
-          secrets: |
-            dataset_url=${{ secrets.DATASET_URL }}
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-          cache-from: type=local,src=/mnt/buildkit-cache
-          cache-to: type=local,dest=/mnt/buildkit-cache,mode=max
-
+          tags: myimage:latest
+          cache-from: type=local,src=/mnt/docker-cache
+          cache-to: type=local,dest=/mnt/docker-cache
 
       - name: Check disk space
         run: df -h
