@@ -264,11 +264,17 @@ jobs:
             image=moby/buildkit:master
             memory=6g
 
+      - name: Copy Directory to minutes
+        run: |
+            sudo mkdir -p /mnt/myworkspace
+            sudo chmod -R 777 /mnt/myworkspace
+            cp -R ${{ github.workspace }}/* /mnt/myworkspace/
+
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.DOCKERFILE_PATH }}
-          file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
+          context: /mnt/myworkspace/db
+          file: /mnt/myworkspace/db/Dockerfile
           platforms: linux/arm64
           push: false
           tags: ${{ env.MAIN_REPO_NAME }}:latest
