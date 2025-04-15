@@ -69,7 +69,7 @@ jobs:
       - name: Download dataset
         working-directory: ${{ github.workspace }}
         run: |
-          aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --max-tries=50 --retry-wait=5 --allow-overwrite=true --auto-file-renaming=false "${{ secrets.DATASET_URL_SLIM }}" -o db/pg.zst
+          aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --max-tries=50 --retry-wait=5  --check-certificate=false --allow-overwrite=true --auto-file-renaming=false "${{ secrets.DATASET_URL_SLIM }}" -o db/pg.zst
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
