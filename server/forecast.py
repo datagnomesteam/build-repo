@@ -125,7 +125,8 @@ def plot_timeseries(df, forecasted, mse, date_field, page):
         xaxis_title='Date',
         yaxis_title=f"Number of {page}",
         legend=dict(x=0, y=1),
-        hovermode='x unified'
+        hovermode='x unified',
+        yaxis_range=[0, df[df['type'] == 'Actual']['count'].max()]
     )
 
     return fig

@@ -351,7 +351,7 @@ def main():
             return int(20000 / (2 ** (zoom - 8)))
 
         radius = zoom_to_radius(zoom_level)
-        st.write(f"🔍 Hex Radius: {radius} meters")
+        #st.write(f"🔍 Hex Radius: {radius} meters")
 
         # Define a custom color range with 10 intensity levels
         color_range = [
