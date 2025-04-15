@@ -258,14 +258,18 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+      - name: Create local Docker cache volume
+        run: |
+          mkdir -p /mnt/docker-cache
+          docker volume create \
+            --driver local \
+            --opt type=none \
+            --opt device=/mnt/docker-cache \
+            --opt o=bind \
+            buildx-cache
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            network=host
-            image=moby/buildkit:master
-            memory=6g
-            buildkitd-flags=--oci-worker-gc-keepstorage=100000
 
       - name: See mount
         run: |
@@ -290,23 +294,13 @@ jobs:
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
-        env:
-          DOCKER_BUILDKIT: 1
-          BUILDKIT_INLINE_CACHE: 1
-          BUILDKIT_CACHE_DIR: /mnt/buildkit-cache
         with:
           context: /mnt/myworkspace/db
           file: /mnt/myworkspace/db/Dockerfile
           platforms: linux/arm64
-          push: false
-          tags: ${{ env.MAIN_REPO_NAME }}:latest
-          provenance: false
-          secrets: |
-            dataset_url=${{ secrets.DATASET_URL }}
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-          cache-from: type=local,src=/mnt/buildkit-cache
-          cache-to: type=local,dest=/mnt/buildkit-cache,mode=max
+          tags: myimage:latest
+          cache-from: type=local,src=/mnt/docker-cache
+          cache-to: type=local,dest=/mnt/docker-cache
 
       - name: Check disk space
         run: df -h
