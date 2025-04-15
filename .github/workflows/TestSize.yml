@@ -25,75 +25,49 @@ jobs:
 
       - name: Maximize build space
         run: |
-          echo "Starting maximization of build space..."
+          echo "Starting build space maximization..."
 
           # --- Remove Android components ---
           echo "Removing Android SDK and related directories..."
           sudo rm -rf /usr/local/lib/android* /usr/local/lib/android-sdk*
           unset ANDROID_HOME ANDROID_NDK ANDROID_NDK_HOME ANDROID_SDK_ROOT
 
-          # --- Remove language runtimes and development tools ---
-          echo "Removing programming languages and toolchains not needed for Docker builds..."
-          sudo apt-get purge -y \
-              clang* gcc* g++* gfortran* \
-              julia* \
-              kotlin* mono* msbuild* \
-              python3* python-is-python3* \
-              nodejs* npm* \
-              ruby* \
-              swift* \
-              php* composer* phpunit*
+          # --- Force removal of nonessential packages ---
+          echo "Forcibly removing nonessential packages..."
+          packages=(
+            # Programming Languages and Runtimes
+            "php" "composer" "phpunit" "python3" "python-is-python3" "nodejs" "npm" "ruby" "perl" "julia" "kotlin" "mono" "msbuild"
+            
+            # Build Tools & Project Management
+            "ant" "gradle" "maven" "sbt" "leiningen"
+
+            # Haskell Toolchain
+            "cabal-install" "ghc" "ghcup" "stack"
+
+            # Rust Toolchain
+            "rustc" "cargo" "rust-docs" "rustfmt"
+
+            # CLI tools and miscellaneous nonessential utilities
+            "ansible" "apt-fast" "azcopy" "bazel" "bicep" "buildah" "cmake" "codeql" "docker-compose" "docker-buildx" "fastlane" "git-ftp" "haveged" "heroku" "jq" "kind" "kubectl" "kustomize" "mediainfo" "mercurial" "minikube" "nvm" "packer" "parcel" "podman" "pulumi" "skopeo" "sphinxsearch" "svn" "terraform" "yamllint" "yq" "zstd" "ninja"
+          )
           
-          # --- Remove project management and build tools ---
-          echo "Removing project management tools..."
-          sudo apt-get purge -y ant* gradle* maven* sbt* leiningen*
-
-          # --- Remove extra utilities and CLI tools ---
-          echo "Removing extra CLI utilities and build tools..."
-          sudo apt-get purge -y \
-              ansible apt-fast azcopy \
-              bazel* bicep buildah cmake codeql \
-              docker-compose docker-buildx \
-              fastlane git* git-lfs* git-ftp \
-              haveged heroku jq kind kubectl kustomize \
-              mediainfo mercurial minikube nvm* \
-              packer parcel podman pulumi skopeo \
-              sphinxsearch svn terraform yamllint yq zstd ninja
-
-          # --- Remove cloud and additional CLI tools ---
-          echo "Removing cloud service CLI tools..."
-          sudo apt-get purge -y \
-              alibaba-cloud-cli awscli awscli-session-manager-plugin aws-sam-cli \
-              azure-cli azure-devops-cli github-cli google-cloud-cli netlify-cli \
-              openshift-cli oras-cli vercel-cli
-
-          # --- Remove Java JDKs ---
-          echo "Removing Java JDKs..."
-          sudo apt-get purge -y openjdk-*
-
-          # --- Remove Haskell toolchain ---
-          echo "Removing Haskell toolchain..."
-          sudo apt-get purge -y cabal-install ghc ghcup stack
-
-          # --- Remove Rust toolchain ---
-          echo "Removing Rust toolchain..."
-          sudo apt-get purge -y rustc cargo rust-docs rustfmt
+          for pkg in "${packages[@]}"; do
+            echo "Attempting to force-remove package: $pkg"
+            sudo dpkg --purge --force-depends "$pkg" || echo "Failed to remove package: $pkg, continuing..."
+          done
 
           # --- Remove extra directories ---
-          echo "Removing extra directories..."
-          sudo rm -rf /usr/share/miniconda /home/linuxbrew
-          sudo rm -rf "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
+          echo "Removing extra directories (Miniconda, Homebrew, toolchain dirs)..."
+          sudo rm -rf /usr/share/miniconda /home/linuxbrew "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
 
-          # --- Clean up package caches ---
-          echo "Cleaning up package caches..."
+          # --- Clean up ---
+          echo "Cleaning up apt caches..."
           sudo apt-get autoremove -y
           sudo apt-get clean
 
-          # --- Show remaining free space ---
-          echo "Remaining disk space:"
+          echo "Build space maximization complete. Current disk space:"
           df -h
 
-          echo "Build space maximized."
 
       - name: Install essential packages
         run: |
