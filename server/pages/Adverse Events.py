@@ -12,7 +12,7 @@ from psycopg2.extras import RealDictCursor
 import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection
-from utils import build_forecast_data, forecast, plot_timeseries
+from forecast import build_forecast_data, forecast, plot_timeseries
 from datetime import date
 from dateutil.relativedelta import relativedelta
 import pydeck as pdk
@@ -29,6 +29,7 @@ def get_database_connection():
         return None
 
 # function to fetch recall data; filter is dict {col: value}
+@st.cache_data
 def fetch_events(filters=None):
     global sample_percent
     conn = get_database_connection()
@@ -46,7 +47,7 @@ def fetch_events(filters=None):
         total_rows = cur.fetchone()['total']
 
     # Step 2: Calculate the sample percentage (for approx 500k rows)
-    target_count = 50000 #TODO: change back to 500k after testing
+    target_count = 500000 #TODO: change back to 500k after testing
     sample_percent = min(100.0, max(0.01, (target_count / total_rows) * 100))
     sample_percent = round(sample_percent, 2)
     
@@ -299,8 +300,8 @@ def main():
         
         # time series chart
         monthly_counts = build_forecast_data(df=df, date_field='date_of_event', freq='M')
-        forecasted_data, forecasted = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='M')
-        fig3 = plot_timeseries(df=forecasted_data, forecasted=forecasted, date_field='date_of_event', page='Events')
+        forecast_output = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='M')
+        fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], mse=forecast_output['mse'], date_field='date_of_event', page='Events')
         st.plotly_chart(fig3)
         
         # data table with search and sort

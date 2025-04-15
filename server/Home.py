@@ -15,6 +15,11 @@ from psycopg2.extras import RealDictCursor
 import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection, get_db_cursor
+from integrate import integrate
+from configs import sources, pivot_cols, canonicals, mappings
+import gc
+
+
 
 # connect to local db
 def get_database_connection():
@@ -132,15 +137,97 @@ def main():
         layout="wide"
     )
     
-    st.title("OpenFDA Devices Dashboard")
-    
-    # sidebar
-    st.sidebar.header("Summary of Device Adverse Events and Recalls")
+    # Streamlit app layout
+    st.title('OpenFDA Medical Devices Dashboard')
 
-    # df = fetch_recalls()
+    # Sidebar for search filter
+    search_query = st.sidebar.text_input('Search Manufacturers', '')
+
+    #print(type(db_credentials))
+    conn = get_database_connection()
+    integrated = integrate(conn, sources, pivot_cols, canonicals, mappings)
+    device_df = (
+        integrated
+            .groupby([
+                "device_name", 
+                "manufacturer_name", 
+                "device_class", 
+                "regulation_number", 
+                "medical_specialty_description"
+            ], dropna=False)
+            .agg(
+                deaths=("death", "sum"),
+                injuries=("injury", "sum"),
+                malfunctions=("malfunction", "sum"),
+                other=("other", "sum"),
+                recalls=("recall", "sum"),
+                class_1=("1", "nunique"),
+                class_2=("2", "nunique"),
+                class_3=("3", "nunique"),
+                records=("device_name", "count"),
+                pma_submissions=("pma_number", "nunique"),
+                k_submissions=("k_number", "nunique"),
+            )
+            .reset_index()
+            .sort_values(by=["manufacturer_name", "device_class", "device_name"])
+    )
+    manufacturer_df = (
+        integrated
+            .groupby("manufacturer_name", dropna=False)
+            .agg(
+                deaths=("death", "sum"),
+                injuries=("injury", "sum"),
+                malfunctions=("malfunction", "sum"),
+                other=("other", "sum"),
+                recalls=("recall", "sum"),
+                class_1=("1", "nunique"),
+                class_2=("2", "nunique"),
+                class_3=("3", "nunique"),
+                unique_devices=("device_name", "nunique"),
+                pma_submissions=("pma_number", "nunique"),
+                k_submissions=("k_number", "nunique"),
+            )
+            .reset_index()
+            .sort_values(by="manufacturer_name")
+    )
+    manufacturer_address_df = (
+        integrated[[
+            "manufacturer_name", 
+            "manufacturer_street", 
+            "manufacturer_city", 
+            "manufacturer_state", 
+            "manufacturer_country", 
+            "manufacturer_postal_code"
+        ]]
+        .drop_duplicates()
+        .sort_values(by="manufacturer_name")
+        .reset_index(drop=True)
+    )
+    del integrated
+    gc.collect()   
     
-    
-        
+    # Filter manufacturer data based on search query
+    if search_query:
+        filtered_manufacturer_df = manufacturer_df[manufacturer_df['manufacturer_name'].str.contains(search_query, case=False, na=False)]
+    else:
+        filtered_manufacturer_df = manufacturer_df
+
+    # Get the list of manufacturer names after filtering
+    filtered_manufacturer_names = filtered_manufacturer_df['manufacturer_name'].tolist()
+
+    # Filter devices and addresses based on the filtered manufacturers
+    filtered_device_df = device_df[device_df['manufacturer_name'].isin(filtered_manufacturer_names)]
+    filtered_address_df = manufacturer_address_df[manufacturer_address_df['manufacturer_name'].isin(filtered_manufacturer_names)]
+
+    # Display tables with sorting enabled
+    st.subheader('Manufacturers')
+    st.dataframe(filtered_manufacturer_df)
+
+    st.subheader('Devices')
+    st.dataframe(filtered_device_df)
+
+    st.subheader('Addresses')
+    st.dataframe(filtered_address_df)
 
 if __name__ == "__main__":
     main()

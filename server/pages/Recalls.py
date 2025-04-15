@@ -13,7 +13,7 @@ import plotly.express as px
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from db_info import get_db_connection, get_db_cursor
-from utils import build_forecast_data, forecast, plot_timeseries
+from forecast import build_forecast_data, forecast, plot_timeseries
 
 # connect to local db
 def get_database_connection():
@@ -25,6 +25,7 @@ def get_database_connection():
         return None
 
 # function to fetch recall data; filter is dict {col: value}
+@st.cache_data
 def fetch_recalls(filters=None):
     conn = get_database_connection()
     if not conn:
@@ -241,8 +242,8 @@ def main():
         
         # time series chart
         monthly_counts = build_forecast_data(df=df, date_field='event_date_posted', freq='M')
-        forecasted_data, forecasted = forecast(counts_df=monthly_counts, date_field='event_date_posted', freq='M')
-        fig3 = plot_timeseries(df=forecasted_data, forecasted=forecasted, date_field='event_date_posted', page='Events')
+        forecast_output = forecast(counts_df=monthly_counts, date_field='event_date_posted', freq='M')
+        fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], mse=forecast_output['mse'], date_field='event_date_posted', page='Recalls')
         st.plotly_chart(fig3)
         
         # data table with search and sort

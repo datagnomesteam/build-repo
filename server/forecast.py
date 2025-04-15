@@ -2,6 +2,7 @@
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import plotly.graph_objects as go
 import pandas as pd
+import streamlit as st
 
 def build_forecast_data(df, date_field, freq):
     df[date_field] = pd.to_datetime(df[date_field], errors='coerce')
@@ -19,9 +20,11 @@ def forecast(counts_df, date_field, freq):
     except ValueError:
         combined_df = counts_df.reset_index()
         combined_df['type'] = ['Actual'] * len(counts_df)
-        return combined_df, False
+        return {"df": combined_df, "mse": None, "params": None, "forecasted": False}
     else:
         fit = model.fit()
+        params = fit.params
+        mse = round(fit.sse / len(counts_df))
 
         # generate Forecasts
         forecast_periods = 24  # forecasting 24 months ahead
@@ -34,9 +37,9 @@ def forecast(counts_df, date_field, freq):
         combined_df = combined_series.reset_index()
         combined_df.columns = [date_field, 'count']
         combined_df['type'] = ['Actual'] * len(counts_df) + ['Forecast'] * forecast_periods
-        return combined_df, True
+        return {"df": combined_df, "mse": mse, "params": params, "forecasted": True}
 
-def plot_timeseries(df, forecasted, date_field, page):
+def plot_timeseries(df, forecasted, mse, date_field, page):
     policy_changes = [
         {'date': '1906-01-01', 'label': 'Pure Food and Drugs Act'},
         {'date': '1938-01-01', 'label': 'Federal Food, Drug, and Cosmetic Act'},
@@ -101,16 +104,17 @@ def plot_timeseries(df, forecasted, date_field, page):
             textangle=-30,
             yshift=150
         )
-
-    # add a hyperlinked footer
+    # add footer with mse and hyperlink to medical device policy
     fig.add_annotation(
-        x=-10,
+        x=0,
+        xshift=100,
         y=0,
+        yshift=-35,
         xref="paper",
         yref="paper",
-        text="<a href='https://www.fda.gov/medical-devices/overview-device-regulation/history-medical-device-regulation-oversight-united-states' target='_blank'>Read about Medical Device Policy</a>",
+        text=f"Holt-Winters MSE: {mse} | <a href='https://www.fda.gov/medical-devices/overview-device-regulation/history-medical-device-regulation-oversight-united-states' target='_blank'>Read about Medical Device Policy</a>",
         showarrow=False,
-        font=dict(size=12, color="blue"),
+        font=dict(size=12, color="grey"),
         align="center",
         xanchor="center",
         yanchor="top"
