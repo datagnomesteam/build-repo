@@ -1,0 +1,163 @@
+name: Push Database To Dockerhub
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    timeout-minutes: 60
+    runs-on: ubuntu-22.04
+    env:
+      DOCKERHUB_USERNAME: datagnomesteam
+      MAIN_REPO_NAME: datagnomesteam/project_database
+      DOCKERFILE_PATH: ${{ github.workspace }}/db
+      DOCKER_BUILDKIT: 1
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
+      CLEAN_OLD_TAGS: false
+
+    steps:
+      - name: Check disk space
+        run: df -h
+
+      - name: Maximize build space
+        run: |
+          echo "Starting maximization of build space..."
+
+          # --- Remove Android components ---
+          echo "Removing Android SDK and related directories..."
+          sudo rm -rf /usr/local/lib/android* /usr/local/lib/android-sdk*
+          unset ANDROID_HOME ANDROID_NDK ANDROID_NDK_HOME ANDROID_SDK_ROOT
+
+          # --- Remove language runtimes and development tools ---
+          echo "Removing programming languages and toolchains not needed for Docker builds..."
+          sudo apt-get purge -y \
+              clang* gcc* g++* gfortran* \
+              julia* \
+              kotlin* mono* msbuild* \
+              python3* python-is-python3* \
+              nodejs* npm* \
+              ruby* \
+              swift* \
+              php* composer* phpunit*
+          
+          # --- Remove project management and build tools ---
+          echo "Removing project management tools..."
+          sudo apt-get purge -y ant* gradle* maven* sbt* leiningen*
+
+          # --- Remove extra utilities and CLI tools ---
+          echo "Removing extra CLI utilities and build tools..."
+          sudo apt-get purge -y \
+              ansible apt-fast azcopy \
+              bazel* bicep buildah cmake codeql \
+              docker-compose docker-buildx \
+              fastlane git* git-lfs* git-ftp \
+              haveged heroku jq kind kubectl kustomize \
+              mediainfo mercurial minikube nvm* \
+              packer parcel podman pulumi skopeo \
+              sphinxsearch svn terraform yamllint yq zstd ninja
+
+          # --- Remove cloud and additional CLI tools ---
+          echo "Removing cloud service CLI tools..."
+          sudo apt-get purge -y \
+              alibaba-cloud-cli awscli awscli-session-manager-plugin aws-sam-cli \
+              azure-cli azure-devops-cli github-cli google-cloud-cli netlify-cli \
+              openshift-cli oras-cli vercel-cli
+
+          # --- Remove Java JDKs ---
+          echo "Removing Java JDKs..."
+          sudo apt-get purge -y openjdk-*
+
+          # --- Remove Haskell toolchain ---
+          echo "Removing Haskell toolchain..."
+          sudo apt-get purge -y cabal-install ghc ghcup stack
+
+          # --- Remove Rust toolchain ---
+          echo "Removing Rust toolchain..."
+          sudo apt-get purge -y rustc cargo rust-docs rustfmt
+
+          # --- Remove extra directories ---
+          echo "Removing extra directories..."
+          sudo rm -rf /usr/share/miniconda /home/linuxbrew
+          sudo rm -rf "$HOME/.cargo" /opt/ghcup /opt/ghc /opt/cabal /opt/stack
+
+          # --- Clean up package caches ---
+          echo "Cleaning up package caches..."
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+
+          # --- Show remaining free space ---
+          echo "Remaining disk space:"
+          df -h
+
+          echo "Build space maximized."
+
+      - name: Install essential packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release \
+            jq \
+            gzip \
+            tar \
+            qemu-user-static \
+            aria2
+
+      - name: Install Docker
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download dataset
+        working-directory: ${{ github.workspace }}
+        run: |
+          aria2c -x16 -s16 -k10M --file-allocation=falloc --max-connection-per-server=16 --min-split-size=10M --max-concurrent-downloads=1 --optimize-concurrent-downloads=true --check-certificate=false --max-tries=50 --retry-wait=5 --allow-overwrite=true --auto-file-renaming=false "${{ secrets.DATASET_URL }}" -o db/pg.zst
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+            image=moby/buildkit:master
+            memory=6g
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.DOCKERFILE_PATH }}
+          file: ${{ env.DOCKERFILE_PATH }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ env.MAIN_REPO_NAME }}:latest
+          provenance: false
+          secrets: |
+            dataset_url=${{ secrets.DATASET_URL }}
+
+      - name: Check disk space
+        run: df -h
+
+      - name: Cleanups
+        if: always()
+        run: |
+          sudo docker system prune -af --volumes || true
+          sudo docker builder prune -af || true
+          sudo docker image prune -af || true
+          echo "Final disk space:"
+          df -h
