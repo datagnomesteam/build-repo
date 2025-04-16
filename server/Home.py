@@ -202,9 +202,7 @@ def main():
         .drop_duplicates()
         .sort_values(by="manufacturer_name")
         .reset_index(drop=True)
-    )
-    del integrated
-    gc.collect()   
+    )   
     
     # Filter manufacturer data based on search query
     if search_query:

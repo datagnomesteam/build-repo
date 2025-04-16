@@ -115,7 +115,6 @@ def clean_canon(series):
 
 def build_schema(df, mapping, canonicals):
     df = df.copy()
-    print(df)
     # project raw columns to be mapped
     df = df[list(mapping.keys())]
     # rename columns based on mapping
