@@ -131,7 +131,7 @@ def build_schema(df, mapping, canonicals):
     df = df[list(canonicals.keys())]
     return df
 
-@st.cache_data
+#@st.cache_data
 def integrate(_conn, sources, pivot_cols, canonicals, mappings):
 
     # Read data from PostgreSQL database

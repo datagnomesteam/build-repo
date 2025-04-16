@@ -25,7 +25,7 @@ def get_database_connection():
         return None
 
 # function to fetch recall data; filter is dict {col: value}
-@st.cache_data
+#@st.cache_data
 def fetch_recalls(filters=None):
     conn = get_database_connection()
     if not conn:
