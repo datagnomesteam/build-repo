@@ -38,10 +38,10 @@ if [ -f /swapfile ]; then
     sudo swapoff /swapfile || true
     sudo rm /swapfile
 fi
-sudo fallocate -l $SWAP_SIZE /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
+#sudo fallocate -l $SWAP_SIZE /swapfile
+#sudo chmod 600 /swapfile
+#sudo mkswap /swapfile
+#sudo swapon /swapfile
 
 # Install required packages
 echo "Installing required packages..."
@@ -125,8 +125,8 @@ DOCKER_BUILDKIT=1 docker buildx build \
 
 # Clean up swap
 echo "Cleaning up swap..."
-sudo swapoff /swapfile
-sudo rm /swapfile
+#sudo swapoff /swapfile
+#sudo rm /swapfile
 
 echo "Build and push completed successfully!"
 echo "Find your image at: https://hub.docker.com/r/$REPO_NAME" 

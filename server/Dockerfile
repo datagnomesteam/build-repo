@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 COPY . .
 
 # Download and extract allCountries.txt directly to current directory
-RUN aria2c --max-tries=50 https://download.geonames.org/export/zip/allCountries.zip && \
+RUN aria2c --max-tries=50 --check-certificate=false https://datagnomesgroup.ddns.net/allCountries.zip && \
     unzip allCountries.zip && \
     rm allCountries.zip
 
