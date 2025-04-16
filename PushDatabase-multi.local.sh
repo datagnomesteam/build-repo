@@ -19,7 +19,7 @@ fi
 DOCKERHUB_USERNAME="datagnomesteam"
 REPO_NAME="datagnomesteam/project_database"
 DOCKERFILE_PATH="db"
-#MEMORY_LIMIT="2G"  # Reduced for Raspberry Pi
+#MEMORY_LIMIT="2G"  # Reduced for Raspberry Pi; uncomment and adjust if needed
 SWAP_SIZE="60G"     # Add swap space
 
 docker system prune -af --volumes
@@ -31,17 +31,18 @@ if [ -z "$DOCKERHUB_TOKEN" ] || [ -z "$DATASET_URL" ]; then
     exit 1
 fi
 
-# Create and enable swap
+# Create and enable swap (if needed)
 # Remove existing swapfile if it exists
 if [ -f /swapfile ]; then
     echo "/swapfile exists. Removing it before creating a new one..."
     sudo swapoff /swapfile || true
     sudo rm /swapfile
 fi
-#sudo fallocate -l $SWAP_SIZE /swapfile
-#sudo chmod 600 /swapfile
-#sudo mkswap /swapfile
-#sudo swapon /swapfile
+# Uncomment these lines to create a new swapfile if required
+# sudo fallocate -l $SWAP_SIZE /swapfile
+# sudo chmod 600 /swapfile
+# sudo mkswap /swapfile
+# sudo swapon /swapfile
 
 # Install required packages
 echo "Installing required packages..."
@@ -64,27 +65,28 @@ sudo apt-get install -y \
 # Configure Docker memory limits
 echo "Configuring Docker memory limits..."
 sudo mkdir -p /etc/docker
-#echo '{
-#  "default-runtime": "runc",
-#  "runtimes": {
-#    "runc": {
-#      "path": "runc"
-#    }
-#  },
-#  "builder": {
-#    "gc": {
-#      "enabled": true,
-#      "defaultKeepStorage": "80GB"
-#    }
-#  },
-#  "experimental": true,
-#  "features": {
-#    "buildkit": true
-#  }
-#}' | sudo tee /etc/docker/daemon.json
+# Uncomment and adjust the JSON below if you need to configure Docker daemon settings
+# echo '{
+#   "default-runtime": "runc",
+#   "runtimes": {
+#     "runc": {
+#       "path": "runc"
+#     }
+#   },
+#   "builder": {
+#     "gc": {
+#       "enabled": true,
+#       "defaultKeepStorage": "80GB"
+#     }
+#   },
+#   "experimental": true,
+#   "features": {
+#     "buildkit": true
+#   }
+# }' | sudo tee /etc/docker/daemon.json
 
-# Restart Docker to apply changes
-#sudo systemctl restart docker
+# Restart Docker to apply changes if necessary
+# sudo systemctl restart docker
 
 # Set up Docker Buildx
 echo "Setting up Docker Buildx..."
@@ -112,19 +114,37 @@ if [ ! -f "$DOCKERFILE_PATH/pg.zst" ]; then
         -o "$DOCKERFILE_PATH/pg.zst"
 fi
 
-# Build and push multi-arch image with memory limits
-echo "Building and pushing multi-arch image..."
+# Build and push the amd64 image first
+echo "Building and pushing amd64 image..."
 DOCKER_BUILDKIT=1 docker buildx build \
+    --platform linux/amd64 \
     --output type=image,compression=zstd,compression-level=19 \
-    --platform linux/arm64 \
     --push \
-    -t "$REPO_NAME:full" \
+    -t "$REPO_NAME:full-amd64" \
     "$DOCKERFILE_PATH"
 
-# Clean up swap
-#echo "Cleaning up swap..."
-#sudo swapoff /swapfile
-#sudo rm /swapfile
+# Build and push the arm64 image next
+echo "Building and pushing arm64 image..."
+DOCKER_BUILDKIT=1 docker buildx build \
+    --platform linux/arm64 \
+    --output type=image,compression=zstd,compression-level=19 \
+    --push \
+    -t "$REPO_NAME:full-arm64" \
+    "$DOCKERFILE_PATH"
+
+# Create and push the multi-arch manifest
+echo "Creating multi-arch manifest..."
+docker manifest create "$REPO_NAME:full" \
+    "$REPO_NAME:full-amd64" \
+    "$REPO_NAME:full-arm64"
+
+echo "Pushing multi-arch manifest..."
+docker manifest push "$REPO_NAME:full"
+
+# Clean up swap (if swap was enabled)
+# echo "Cleaning up swap..."
+# sudo swapoff /swapfile
+# sudo rm /swapfile
 
 echo "Build and push completed successfully!"
-echo "Find your image at: https://hub.docker.com/r/$REPO_NAME" 
+echo "Find your image at: https://hub.docker.com/r/$REPO_NAME"
