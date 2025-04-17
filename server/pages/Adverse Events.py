@@ -192,6 +192,7 @@ def main():
     
     # sidebar filters
     st.sidebar.header("Filters")
+    st.sidebar.text("Range of 3 years required to forecast...")
 
     # define the minimum and maximum selectable dates
     min_date = date(1945, 1, 1)
@@ -203,21 +204,21 @@ def main():
         # user selects the 'From' date
         date_from = st.date_input(
             "From",
-            value=max_date - timedelta(days=365*2),
+            value=max_date - timedelta(days=365*3),
             min_value=min_date,
-            max_value=max_date - timedelta(days=365*2)
+            max_value=max_date - timedelta(days=365*3)
         )
 
-    # calculate the minimum 'To' date (2 years after 'From' date)
+    # calculate the minimum 'To' date (3 years after 'From' date)
     min_to_date = max_date
-    if date_from + relativedelta(years=2) <= max_date:
-        min_to_date = date_from + relativedelta(years=2)
+    if date_from + relativedelta(years=3) <= max_date:
+        min_to_date = date_from + relativedelta(years=3)
 
     with col2:
         # user selects the 'to' date with adjusted constraints
         date_to = st.date_input(
             "To",
-            value=min_to_date,
+            value=max_date,
             min_value=min_to_date,
             max_value=max_date
         )
@@ -305,7 +306,7 @@ def main():
         # time series chart
         monthly_counts = build_forecast_data(df=df, date_field='date_of_event', freq='M')
         forecast_output = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='M')
-        fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], mse=forecast_output['mse'], date_field='date_of_event', page='Events')
+        fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], rmse=forecast_output['rmse'], date_field='date_of_event', page='Events')
         st.plotly_chart(fig3)
         
         # data table with search and sort
