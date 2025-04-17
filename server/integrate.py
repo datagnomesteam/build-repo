@@ -5,9 +5,6 @@ import re
 import uuid
 
 def fetch_events(conn):
-    conn = conn
-    if not conn:
-        return pd.DataFrame()
     
     # Step 1: Calculate the approximate row count from pg_class
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -53,12 +50,8 @@ def fetch_events(conn):
     
     except Exception as e:
         st.error(f'Error fetching data: {e}')
-        return pd.DataFrame()
     
 def fetch_table(conn, table):
-    conn = conn
-    if not conn:
-        return pd.DataFrame()
     
     # Step 1: Calculate the approximate row count from pg_class
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -101,7 +94,6 @@ def fetch_table(conn, table):
     
     except Exception as e:
         st.error(f'Error fetching data: {e}')
-        return pd.DataFrame()
 
 def clean_canon(series):
     return (
@@ -115,6 +107,7 @@ def clean_canon(series):
 
 def build_schema(df, mapping, canonicals):
     df = df.copy()
+    #st.write("DataFrame Columns: ", df.columns)
     # project raw columns to be mapped
     df = df[list(mapping.keys())]
     # rename columns based on mapping

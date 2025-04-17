@@ -129,6 +129,32 @@ def get_recall_stats():
     finally:
         conn.close()
 
+def analyze_all_tables(conn):
+    # Query to get all table names in the public schema
+    query = """
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+    """
+    
+    # Fetch the list of tables
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        tables = cursor.fetchall()
+    
+    # Run ANALYZE for each table
+    for table in tables:
+        table_name = table[0]
+        try:
+            with conn.cursor() as cursor:
+                #st.write(f"Running ANALYZE on {table_name}...")
+                cursor.execute(f"ANALYZE public.{table_name}")
+                conn.commit()  # Commit after each analyze
+                #st.write(f"ANALYZE completed for {table_name}")
+        except Exception as e:
+            st.error(f"Error analyzing {table_name}: {str(e)}")
+
+
 # app layout and functionality
 def main():
     st.set_page_config(
@@ -145,6 +171,7 @@ def main():
 
     #print(type(db_credentials))
     conn = get_database_connection()
+    analyze_all_tables(conn)
     integrated = integrate(conn, sources, pivot_cols, canonicals, mappings)
     device_df = (
         integrated
