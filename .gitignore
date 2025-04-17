@@ -113,6 +113,15 @@ db/pg.sql
 dataset_url.txt
 swapfile.*
 .secrets
+server/allCountries.txt
+
+
+# ignore large priya files
+priya-streamlit-test/sample-data/*
+priya-streamlit-test/*.pkl
+priya-streamlit-test/run_algos/*.pkl
+priya-streamlit-test/ignore/*
+
 allCountries.txt
 allCountries.zip
 index.html
