@@ -529,4 +529,4 @@ def run(prompt=True):
         create_cluster()
 
 if __name__ == '__main__':
-    run()
+    run(prompt=False)
