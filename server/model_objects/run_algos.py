@@ -145,7 +145,7 @@ def train_model():
         'device_event',
         """
         select distinct d.manufacturer_d_name, e.event_type, device_report_product_code, d.openfda_regulation_number, d.model_number, d.openfda_device_name
-        from device_event e join device d on d.event_id = e.event_id
+        from device_event e join device d on d.event_id = e.event_id where e.event_type is not null
         """
     )
 
@@ -266,7 +266,9 @@ def train_model():
         # label output
         labels = {'Death': 0, 'Injury': 1, 'Malfunction': 2, 'No answer provided': 3, 'Other': 4}
         df_device_event['y'] = df_device_event['event_type'].replace(labels)
-        
+        # if any nulls, replace with 3 as default
+        df_device_event['y'].fillna(3, inplace=True)
+
         ########### train data ##############
         print('training...')
         # split into X and y
