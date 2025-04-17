@@ -526,7 +526,7 @@ def run(prompt=True):
         print('\nGoodbye!')
     else:
         train_model()
-        create_cluster()
+        # create_cluster()
 
 if __name__ == '__main__':
-    run(prompt=False)
+    run(prompt=False) # set to True if user wants more control over which algo to run
