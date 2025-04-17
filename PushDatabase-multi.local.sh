@@ -114,6 +114,9 @@ if [ ! -f "$DOCKERFILE_PATH/pg.zst" ]; then
         -o "$DOCKERFILE_PATH/pg.zst"
 fi
 
+echo "Downloading buildx"
+docker run --privileged --rm tonistiigi/binfmt --install all
+
 # Build and push the amd64 image first
 echo "Building and pushing amd64 image..."
 DOCKER_BUILDKIT=1 docker buildx build \
