@@ -349,7 +349,7 @@ def main():
 
 
         # Let the user pick a zoom level via slider (simulated zoom control)
-        zoom_level = st.slider("Simulated Zoom Level", min_value=6, max_value=16, value=12)
+        zoom_level = st.slider("Simulated Zoom Level", min_value=6, max_value=16, value=9)
 
         # Function to compute hex radius based on zoom level
         def zoom_to_radius(zoom):
