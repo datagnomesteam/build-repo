@@ -19,7 +19,7 @@ ENV LC_ALL en_US.UTF-8
 RUN mkdir -p $PGDATA && chown -R postgres:postgres $PGDATA
 
 # Copy or download dump
-COPY ./pg_slim.zst /tmp/pg.zst
+COPY ./pg.zst /tmp/pg.zst
 RUN chmod -R 777 /tmp
 
 # Use postgres user
