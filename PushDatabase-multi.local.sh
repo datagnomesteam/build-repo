@@ -20,7 +20,7 @@ DOCKERHUB_USERNAME="datagnomesteam"
 REPO_NAME="datagnomesteam/project_database"
 DOCKERFILE_PATH="db"
 #MEMORY_LIMIT="2G"  # Reduced for Raspberry Pi; uncomment and adjust if needed
-SWAP_SIZE="60G"     # Add swap space
+SWAP_SIZE="100G"     # Add swap space
 
 docker system prune -af --volumes
 
@@ -39,10 +39,10 @@ if [ -f /swapfile ]; then
     sudo rm /swapfile
 fi
 # Uncomment these lines to create a new swapfile if required
-# sudo fallocate -l $SWAP_SIZE /swapfile
-# sudo chmod 600 /swapfile
-# sudo mkswap /swapfile
-# sudo swapon /swapfile
+sudo fallocate -l $SWAP_SIZE /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
 
 # Install required packages
 echo "Installing required packages..."
@@ -145,9 +145,9 @@ echo "Pushing multi-arch manifest..."
 docker manifest push "$REPO_NAME:full"
 
 # Clean up swap (if swap was enabled)
-# echo "Cleaning up swap..."
-# sudo swapoff /swapfile
-# sudo rm /swapfile
+echo "Cleaning up swap..."
+sudo swapoff /swapfile
+sudo rm /swapfile
 
 echo "Build and push completed successfully!"
 echo "Find your image at: https://hub.docker.com/r/$REPO_NAME"
