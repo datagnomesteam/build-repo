@@ -28,8 +28,12 @@ from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import GridSearchCV
 import plotly.express as px
-from ..db_info import get_db_connection
+import sys
+import os
 
+# Add the server directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db_info import get_db_connection
 
 # # NOTE - these require internet connection
 # nltk.download('stopwords')
