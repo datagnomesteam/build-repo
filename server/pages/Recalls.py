@@ -133,6 +133,10 @@ def main():
     )
     
     st.title("Recalls Dashboard")
+    st.text("This dashboard takes a closer look at medical device recalls. On the left sidebar, the user may apply a variety of filters on the underlying data. Visuals will update to reflect the filtered data.")
+    st.text("At the top of the page, to the right of the sidebar, recalls are summarized are broken down by type and manufacturer.")
+    st.text("In the middle of the page, recalls are displayed over time, and the top 100 rows from the underlying recall data is displayed in a tabular view. Holt-Winters exponential smoothing is implemented to forecast recalls beyond the specified time window. Major policy changes regarding medical devices are visualized along the X-axis.")
+    st.text("At the bottom of the page, events are displayed geographically. @Chris to fill in.")
     
     # sidebar filters
     st.sidebar.header("Filters")
@@ -247,7 +251,7 @@ def main():
         st.plotly_chart(fig3)
         
         # data table with search and sort
-        st.subheader("100 Most Recent Event Details")
+        st.subheader("100 Most Recent Recall Details")
         st.dataframe(
             df.drop(columns=['id']).sort_values('event_date_posted', ascending=False)[:100],
             use_container_width=True

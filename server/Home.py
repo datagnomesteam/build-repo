@@ -15,7 +15,7 @@ from psycopg2.extras import RealDictCursor
 import plotly.express as px
 from datetime import datetime, timedelta
 from db_info import get_db_connection, get_db_cursor
-from integrate import integrate
+from integrate import integrate, group_devices, group_manufacturers, get_addresses
 from integrate_configs import sources, pivot_cols, canonicals, mappings
 import gc
 
@@ -165,6 +165,9 @@ def main():
     
     # Streamlit app layout
     st.title('OpenFDA Medical Devices Dashboard')
+    st.text("This page displays a comprehensive profile of medical device manufacturers, their associated devices, and their unique addresses. The data underneath this dashboard was obtained by integrating 5 tables from the OpenFDA Medical Device database: device events, device recalls, pma submissions, 510k submissions, and device classifications.")
+    st.text("To start, search for a manufacturer of interest in the left hand search bar. A partial text search will be peformed under-the-hood. The devices and addresses tables will update to show devices and addresses associated with the returned manufacturers. Hit enter on your keyboard.")
+    st.text("Next, adjust the bar charts by selecting a continuous metric and the number of entities (manufacturers or devices, depending on the bar chart) you wish to see. Hit enter on your keyboard.")
 
     # Sidebar for search filter
     search_query = st.sidebar.text_input('Search Manufacturers', '')
@@ -173,63 +176,9 @@ def main():
     conn = get_database_connection()
     analyze_all_tables(conn)
     integrated = integrate(conn, sources, pivot_cols, canonicals, mappings)
-    device_df = (
-        integrated
-            .groupby([
-                "device_name", 
-                "manufacturer_name", 
-                "device_class", 
-                "regulation_number", 
-                "medical_specialty_description"
-            ], dropna=False)
-            .agg(
-                deaths=("death", "sum"),
-                injuries=("injury", "sum"),
-                malfunctions=("malfunction", "sum"),
-                other=("other", "sum"),
-                recalls=("recall", "sum"),
-                class_1=("1", "nunique"),
-                class_2=("2", "nunique"),
-                class_3=("3", "nunique"),
-                records=("device_name", "count"),
-                pma_submissions=("pma_number", "nunique"),
-                k_submissions=("k_number", "nunique"),
-            )
-            .reset_index()
-            .sort_values(by=["manufacturer_name", "device_class", "device_name"])
-    )
-    manufacturer_df = (
-        integrated
-            .groupby("manufacturer_name", dropna=False)
-            .agg(
-                deaths=("death", "sum"),
-                injuries=("injury", "sum"),
-                malfunctions=("malfunction", "sum"),
-                other=("other", "sum"),
-                recalls=("recall", "sum"),
-                class_1=("1", "nunique"),
-                class_2=("2", "nunique"),
-                class_3=("3", "nunique"),
-                unique_devices=("device_name", "nunique"),
-                pma_submissions=("pma_number", "nunique"),
-                k_submissions=("k_number", "nunique"),
-            )
-            .reset_index()
-            .sort_values(by="manufacturer_name")
-    )
-    manufacturer_address_df = (
-        integrated[[
-            "manufacturer_name", 
-            "manufacturer_street", 
-            "manufacturer_city", 
-            "manufacturer_state", 
-            "manufacturer_country", 
-            "manufacturer_postal_code"
-        ]]
-        .drop_duplicates()
-        .sort_values(by="manufacturer_name")
-        .reset_index(drop=True)
-    )   
+    device_df = group_devices(integrated)
+    manufacturer_df = group_manufacturers(device_df)
+    manufacturer_address_df = get_addresses(integrated)
     
     # Filter manufacturer data based on search query
     if search_query:
@@ -244,14 +193,74 @@ def main():
     filtered_device_df = device_df[device_df['manufacturer_name'].isin(filtered_manufacturer_names)]
     filtered_address_df = manufacturer_address_df[manufacturer_address_df['manufacturer_name'].isin(filtered_manufacturer_names)]
 
-    # Display tables with sorting enabled
+    # Display manufacturers
     st.subheader('Manufacturers')
-    st.dataframe(filtered_manufacturer_df)
+    col1, col2 = st.columns(2)
 
-    st.subheader('Devices')
-    st.dataframe(filtered_device_df)
+    with col1:
+        st.dataframe(filtered_manufacturer_df, height=600)
 
-    st.subheader('Addresses')
+    with col2:
+        y_axis1 = st.selectbox(
+            f"Select Y-axis attribute",
+            options=["deaths", "injuries", "malfunctions", "other", "recalls", "pma_submissions", "k_submissions", "unique_devices", "num_class_1_devices", "num_class_2_devices", "num_class_3_devices"],
+            key=f"select_manufacturers"
+        )
+
+        top_n1 = st.slider(
+            f"Select number of manufacturers",
+            min_value=1,
+            max_value=20,
+            value=5,
+            key=f"slider_manufacturers"
+        )
+
+        # Sort and select top N entities
+        top_manufacturers = filtered_manufacturer_df.sort_values(by=y_axis1, ascending=False).head(top_n1)
+
+        # Create bar chart
+        fig1 = px.bar(
+            top_manufacturers,
+            x='manufacturer_name',
+            y=y_axis1,
+            title=f"Top {top_n1} manufacturers by {y_axis1}"
+            )
+        st.plotly_chart(fig1, use_container_width=True)
+
+    st.subheader(f"{search_query.title()} Devices")
+    col2, col3 = st.columns(2)
+
+    with col2:
+        st.dataframe(filtered_device_df, height=600)
+
+    with col3:
+        y_axis2 = st.selectbox(
+            f"Select Y-axis attribute",
+            options=["deaths", "injuries", "malfunctions", "other", "recalls", "pma_submissions", "k_submissions", "records"],
+            key=f"select_devices"
+        )
+
+        top_n2 = st.slider(
+            f"Select number of manufacturers",
+            min_value=1,
+            max_value=20,
+            value=5,
+            key=f"slider_devices"
+        )
+
+        # Sort and select top N entities
+        top_devices = filtered_device_df.sort_values(by=y_axis2, ascending=False).head(top_n2)
+
+        # Create bar chart
+        fig = px.bar(
+            top_devices,
+            x='device_name',
+            y=y_axis2,
+            title=f"Top {top_n2} devices by {y_axis2}"
+            )
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader(f"{search_query.title()} Addresses")
     st.dataframe(filtered_address_df)
 
 if __name__ == "__main__":

@@ -124,7 +124,7 @@ def build_schema(df, mapping, canonicals):
     df = df[list(canonicals.keys())]
     return df
 
-#@st.cache_data
+@st.cache_data # turn on streamlit caching to avoid re-running the itegration function
 def integrate(_conn, sources, pivot_cols, canonicals, mappings):
 
     # Read data from PostgreSQL database
@@ -156,3 +156,66 @@ def integrate(_conn, sources, pivot_cols, canonicals, mappings):
         master = pd.concat([master, dummies], axis=1)
 
     return master
+
+def group_devices(df):
+    df = df.groupby([
+            "device_name", 
+            "manufacturer_name", 
+            "device_class", 
+            "regulation_number", 
+            "medical_specialty_description"
+        ], dropna=False) \
+        .agg(
+            deaths=("death", "sum"),
+            injuries=("injury", "sum"),
+            malfunctions=("malfunction", "sum"),
+            other=("other", "sum"),
+            recalls=("recall", "sum"),
+            class_1=("1", "sum"),
+            class_2=("2", "sum"),
+            class_3=("3", "sum"),
+            records=("device_name", "count"),
+            pma_submissions=("pma_number", "nunique"),
+            k_submissions=("k_number", "nunique"),
+        ) \
+        .assign(
+            class_1=lambda x: x['class_1'].clip(upper=1),
+            class_2=lambda x: x['class_2'].clip(upper=1),
+            class_3=lambda x: x['class_3'].clip(upper=1)
+        ) \
+        .reset_index() \
+        .sort_values(by=["manufacturer_name", "device_class", "device_name"])
+    return df
+
+def group_manufacturers(df):
+    df = df.groupby("manufacturer_name", dropna=False) \
+        .agg(
+            deaths=("deaths", "sum"),
+            injuries=("injuries", "sum"),
+            malfunctions=("malfunctions", "sum"),
+            other=("other", "sum"),
+            recalls=("recalls", "sum"),
+            num_class_1_devices=("class_1", "sum"),
+            num_class_2_devices=("class_2", "sum"),
+            num_class_3_devices=("class_3", "sum"),
+            unique_devices=("device_name", "nunique"),
+            pma_submissions=("pma_submissions", "nunique"),
+            k_submissions=("k_submissions", "nunique")
+        ) \
+        .reset_index() \
+        .sort_values(by="manufacturer_name")
+    return df
+
+def get_addresses(df):
+    df = df[[
+            "manufacturer_name", 
+            "manufacturer_street", 
+            "manufacturer_city", 
+            "manufacturer_state", 
+            "manufacturer_country", 
+            "manufacturer_postal_code"
+        ]] \
+        .drop_duplicates() \
+        .sort_values(by="manufacturer_name") \
+        .reset_index(drop=True)
+    return df
