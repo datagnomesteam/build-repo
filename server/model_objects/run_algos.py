@@ -28,27 +28,20 @@ from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import GridSearchCV
 import plotly.express as px
+from ..db_info import get_db_connection
 
 
 # # NOTE - these require internet connection
 # nltk.download('stopwords')
 # nltk.download('punkt_tab')
 
-# DB params. ensure that there is an environment variable for postgres_password
-DB_PARAMS = {
-    "host": "localhost",
-    "database": "openfda_recalls",
-    "user": "postgres",
-    "password": os.environ.get("postgres_password"),
-    "port": 5432
-}
 
 # function to read data into dataframe
 def read_table(table,query=None):
     def get_postgres_conn():
         conn = None
         try:
-            conn = psycopg2.connect(**DB_PARAMS)
+            conn = get_db_connection()
             return conn
         
         except psycopg2.Error as e:
