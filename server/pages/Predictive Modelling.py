@@ -139,7 +139,9 @@ def model_data(st):
             df = fix_dataframe(df)
             col1_1.metric('Probability of Recall ',  f'{recall_probability*100:.3f}%')
             # plot the table of feature values
-            df = df.reset_index(drop=True)[['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'num_events']]
+            df = df.groupby(['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval'])['num_events'].sum().reset_index()
+            df.columns = ['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'total_events']
+            print(df)
             col1_1.dataframe(df.T) 
 
             # # plot probability as a pie chart

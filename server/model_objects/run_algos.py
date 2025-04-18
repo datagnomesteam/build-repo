@@ -392,8 +392,10 @@ def make_prediction(device_name, path):
         # make prediction 
         prediction =  model.predict_proba(X)
         print('RECALL prediction:', prediction)
-        # if we have more than one row for device_name keep first prediction
-        return prediction[0][1], prediction[0], df
+        # if we have more than one row for device_name for each event_type, keep highest prediction to assume worst case
+        highest_prob = np.max(prediction, axis=1)
+
+        return highest_prob[0], None, df
     
     elif 'event_type' in path:
         # get data from query
