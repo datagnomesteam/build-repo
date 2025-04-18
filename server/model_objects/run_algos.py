@@ -4,50 +4,34 @@ pip install scikit-learn nltk matplotlib cleanco levenshtein name_matching xgboo
 make sure "xgboost" directory exists in path
 """
 import pandas as pd
-from sklearn.multioutput import MultiOutputRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-
-from sklearn.model_selection import cross_val_score, cross_validate, train_test_split
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from nltk.corpus import stopwords
-from sklearn.multioutput import MultiOutputClassifier
-import xgboost as xgb
-from sklearn.metrics import hamming_loss, f1_score
-from sklearn.preprocessing import MultiLabelBinarizer , OneHotEncoder
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
+import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-import seaborn as sns
-import re
-import unicodedata
-from cleanco import basename
 import time
-from name_matching.name_matcher import NameMatcher
 import pickle
 import os
 import psycopg2
-import xgboost as xgb
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
-from sklearn.decomposition import PCA
-import pickle
-from sklearn.cluster import DBSCAN
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.model_selection import GridSearchCV
-import plotly.express as px
 import sys
-import os
+import re
+import pickle
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.feature_extraction.text import TfidfVectorizer
+import unicodedata
+from cleanco import basename
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.decomposition import PCA
+from sklearn.cluster import DBSCAN
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
 
 # Add the server directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db_info import get_db_connection
-
-# # NOTE - these require internet connection
-# nltk.download('stopwords')
-# nltk.download('punkt_tab')
-
 
 # function to read data into dataframe
 def read_table(table,query=None):
@@ -177,13 +161,13 @@ def train_model():
         df_class['prprc_class_device_name'] = preprocess_col(df_class, 'device_name')
         df_recall['prprc_recall_device_name'] = preprocess_col(df_recall, 'openfda_device_name')
 
-        ############ join event data with device classification using product_code ############
-        df_merged = df_device_event.merge(df_class, left_on='prprc_event_device_name', right_on='prprc_class_device_name')
+        ############ left join event data with device classification using product_code ############
+        df_merged = df_device_event.merge(df_class, left_on='prprc_event_device_name', right_on='prprc_class_device_name', how='left')
         # using cols submission_type_id, determine of 510k/PMA approved
         df_merged['pma_approval'] = df_merged['submission_type_id'].apply(lambda x: 1 if x == '2' else 0)
         df_merged['510k_approval'] = df_merged['submission_type_id'].apply(lambda x: 1 if x == '1' else 0)
 
-        ############ join with device recall using device name and get recall count ############
+        ############ left join with device recall using device name and get recall count ############
         df_merged = df_merged.merge(df_recall, left_on='prprc_event_device_name', right_on='prprc_recall_device_name', how='left')
         df_merged['recall_count'] = df_merged['recall_count'].fillna(0.0)
         df_merged['recall'] = df_merged['recall_count'].apply(lambda x: 1 if x > 0.0 else 0)
@@ -365,7 +349,6 @@ def get_model_objects(path):
 def make_prediction(device_name, path):
     # get model params
     model, encoder, vectorizer, pca, _, _ = get_model_objects(path)
-
     # depending on model type, get query and preprocess
     if 'recall' in path:
         # get data from query
@@ -382,9 +365,9 @@ def make_prediction(device_name, path):
             from device d
             join device_event e
                 on e.event_id = d.event_id
-            join device_classification c 
-                on c.device_name = d.openfda_device_name 
-            where d.openfda_device_name = '%s'
+            left join device_classification c 
+                on lower(c.device_name) = lower(d.openfda_device_name)
+            where lower(d.openfda_device_name) = '%s'
             group by
                 d.openfda_device_name,
                 c.product_code,
@@ -393,7 +376,7 @@ def make_prediction(device_name, path):
                 d.openfda_regulation_number,
                 case when c.submission_type_id = '2' then 1 else 0 end,
                 case when c.submission_type_id = '1' then 1 else 0 end
-        """ % device_name
+        """ % device_name.lower()
         df = read_table('device_event', query).drop_duplicates()
         # if no data found, return -1
         if df.empty:
@@ -408,6 +391,7 @@ def make_prediction(device_name, path):
 
         # make prediction 
         prediction =  model.predict_proba(X)
+        print('RECALL prediction:', prediction)
         # if we have more than one row for device_name keep first prediction
         return prediction[0][1], prediction[0], df
     

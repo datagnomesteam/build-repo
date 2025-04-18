@@ -67,6 +67,7 @@ def fix_dataframe(df):
     
     return df
 
+# show model information
 def model_data(st):   
     st.title("Predictive Modeling")
     col1, col2 = st.columns(2)
@@ -74,20 +75,22 @@ def model_data(st):
     col1.text('')
 
     col1.write(f"""
-        This page allows a user to select a device associated to an adverse event and predict 
-        1) the probability the same device having a recall and 
-        2) the type of event that is most likely to occur. 
+        This page allows a user to select a device associated with an adverse event and predict 
+        1) The probability the same device having a recall and 
+        2) The type of event that is most likely to occur. 
                
         This is helpful for manufacturers to determine the likelihood of a particular device to have issues, allowing them to take preventative measures and prioritize safety prior to market release. 
 
-        Both models were trained using logistic regression classification models. Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Unknown, and Other - and it's possible for a device to be associated with multiple types. For this reason, a model was trained for each type, and the one with the highest probability is displayed. 
+        Both models were trained using XGBoost implementations of Logistic Regression, since it is capable of handling complex features, categorical variable encoding, and null values, as opposed to traditional Logistic Regrssion. Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Not Provided, and Other - and it's possible for a device to be associated with multiple types. For this reason, a model was trained for each event type and wrapped using Scikit-Learn's MultiOutputClassifier, and the result with the highest probability is displayed. 
         
         The data was preprocessed based on feature type: 
-        a) categorical features were one-hot encoded.
-        b) numerical features were impute.
-        c) text features were transformed to remove stopwords and vectorized using Term Frequency-Inverse Document Frequency (TF-IDF).
-
-        The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. Note that the event type classifier's matrix represents the aggregate of all models. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. 
+        a) Categorical features were one-hot encoded.
+        b) Numerical features were imputed.
+        c) Text features were transformed to remove stopwords and vectorized using Term Frequency-Inverse Document Frequency (TF-IDF).
+               
+        Principal Component Analysis (PCA) was used for dimensionality reduction. The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. Note that the event type classifier's matrix represents the aggregate of all models. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. Select the tabs on the right to toggle between the two models.
+               
+        Select a device name below to generate a prediction for recall probability and most likely event type.
             
     """)
     
@@ -136,8 +139,15 @@ def model_data(st):
             df = fix_dataframe(df)
             col1_1.metric('Probability of Recall ',  f'{recall_probability*100:.3f}%')
             # plot the table of feature values
-            df = df.reset_index(drop=True)[['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'num_events']]         
+            df = df.reset_index(drop=True)[['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'num_events']]
             col1_1.dataframe(df.T) 
+
+            # # plot probability as a pie chart
+            # fig, ax = plt.subplots()
+            # ax.pie([recall_probability, 1-recall_probability], colors=['lightcoral', 'lightgreen'], labels=['P(Recall=1)', 'P(Recall=0)'], autopct='%1.3f%%')
+            # fig.patch.set_alpha(0)
+            # col1_1.pyplot(fig)
+
         else: col1_1.text('No data found.')
 
         if event_type != -1:
@@ -156,10 +166,12 @@ def model_data(st):
             print(prob_df)
             prob_df = prob_df.reset_index(drop=True)
             col2_2.bar_chart(prob_df.T, x_label='Probability Breakdown for Device')
-        else: col_2.text('No data found')
+            
+        else: col2_2.text('No data found')
 
     else:
         st.info("No device names found.")
+
 
 def cluster_data(st):
     st.header('Clustering Manufactuer and Device Names')
