@@ -21,7 +21,7 @@ import pickle
 import os
 import psycopg2
 import xgboost as xgb
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.decomposition import PCA
 import pickle
 from sklearn.cluster import DBSCAN
@@ -263,17 +263,19 @@ def train_model():
         numerical = []
         text = 'device_name' 
         data, encoder, vectorizer, pca = preprocess_data(df_device_event, categorical, text, numerical)
-        # label output
-        labels = {'Death': 0, 'Injury': 1, 'Malfunction': 2, 'No answer provided': 3, 'Other': 4}
-        df_device_event['y'] = df_device_event['event_type'].replace(labels)
-        # if any nulls, replace with 3 as default
-        df_device_event['y'].fillna(3, inplace=True)
+        # label output using encoder
+        le = LabelEncoder()
+        y = le.fit_transform(df_device_event['event_type'])
+        # labels = {'Death': 0, 'Injury': 1, 'Malfunction': 2, 'No answer provided': 3, 'Other': 4}
+        # df_device_event['y'] = df_device_event['event_type'].replace(labels)
+        # # if any nulls, replace with 3 as default
+        # df_device_event['y'].fillna(3, inplace=True)
 
         ########### train data ##############
         print('training...')
         # split into X and y
         X = data.values
-        y = df_device_event['y']
+        # y = df_device_event['y']
 
         print(X.shape, y.shape)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=62)
@@ -359,7 +361,8 @@ def get_model_objects(path):
 def make_prediction(device_name, path):
     # get model params
     model, encoder, vectorizer, pca, _, _ = get_model_objects(path)
-
+    print('PREDICTION FROM: ', path)
+    print('device name: ', device_name)
     # depending on model type, get query and preprocess
     if 'recall_probability' in path:
         # get data from query
@@ -392,7 +395,7 @@ def make_prediction(device_name, path):
         df = read_table('device_event', query)
         # if no data found, return -1
         if df.empty:
-            return -1, None
+            return -1, None, None
         print(df)
 
         # preprocess input
@@ -417,7 +420,7 @@ def make_prediction(device_name, path):
         df = read_table('device_event', query)
         # if no data found, return -1
         if df.empty:
-            return -1, None
+            return -1, None, None
         print(df)
 
         # preprocess input
