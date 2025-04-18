@@ -246,8 +246,8 @@ def main():
             st.plotly_chart(fig2)
         
         # time series chart
-        monthly_counts = build_forecast_data(df=df, date_field='event_date_posted', freq='M')
-        forecast_output = forecast(counts_df=monthly_counts, date_field='event_date_posted', freq='M')
+        monthly_counts = build_forecast_data(df=df, date_field='event_date_posted', freq='ME')
+        forecast_output = forecast(counts_df=monthly_counts, date_field='event_date_posted', freq='ME')
         fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], rmse=forecast_output['rmse'], date_field='event_date_posted', page='Recalls')
         st.plotly_chart(fig3)
         
