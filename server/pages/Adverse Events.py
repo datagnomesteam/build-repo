@@ -190,7 +190,7 @@ def main():
     st.text("This dashboard takes a closer look at adverse events associated with medical devices. On the left sidebar, the user may apply a variety of filters on the underlying data. Visuals will update to reflect the filtered data.")
     st.text("At the top of the page, to the right of the sidebar, adverse events are summarized are broken down by type and manufacturer.")
     st.text("In the middle of the page, events are displayed over time, and the top 100 rows from the underlying event data is displayed in a tabular view. Holt-Winters exponential smoothing is implemented to forecast events beyond the specified time window. Major policy changes regarding medical devices are visualized along the X-axis.")
-    st.text("At the bottom of the page, events are displayed geographically. This graph is the location of the manufactorer that produced the failing device. The FDA data did not provide the address of events. To operate the map, you can identify hotspots with the default zoom level. From there you can zoom in using the slider to see a more granular view")
+    st.text("At the bottom of the page, events are displayed geographically. This graph is the location of the manufacturer that produced the failing device. The FDA data did not provide the address of events. To operate the map, you can identify hotspots with the default zoom level. From there you can zoom in using the slider to see a more granular view")
     
     # sidebar filters
     st.sidebar.header("Filters")
