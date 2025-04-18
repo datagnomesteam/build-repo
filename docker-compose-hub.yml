@@ -15,9 +15,6 @@ services:
       - DB_USER=chris
       - DB_PASSWORD=chris
       - API_URL=http://server:8000
-    #Uncomment for debugging later
-    #volumes:
-    #  - ./server:/app
     networks:
       - app_network
     restart: unless-stopped
