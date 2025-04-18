@@ -77,6 +77,7 @@ def model_data(st):
         This page allows a user to select a device associated to an adverse event and predict 
         1) the probability the same device having a recall and 
         2) the type of event that is most likely to occur. 
+               
         This is helpful for manufacturers to determine the likelihood of a particular device to have issues, allowing them to take preventative measures and prioritize safety prior to market release. 
 
         Both models were trained using logistic regression classification models. Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Unknown, and Other - and it's possible for a device to be associated with multiple types. For this reason, a model was trained for each type, and the one with the highest probability is displayed. 
