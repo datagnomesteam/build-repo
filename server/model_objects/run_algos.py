@@ -21,7 +21,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.decomposition import PCA
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN, HDBSCAN
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -465,7 +465,7 @@ def create_cluster():
     # calculate cosing similarity of all values in df
     similarity = cosine_similarity(data)
     # cluster using dbscan
-    cluster = DBSCAN(eps=0.1, min_samples=1, metric='cosine').fit(similarity)
+    cluster = DBSCAN(eps=0.005, min_samples=1, metric='cosine').fit(similarity) # lower epsilon to reduce distance between matches
     labels = cluster.labels_
     unique, counts = np.unique(labels, return_counts = True)
     print('num clusters:', len(unique))
@@ -476,11 +476,11 @@ def create_cluster():
     # generate cluster plot by running pca
     print('running PCA on cluster data...')
     X_embedded = PCA(n_components=2).fit_transform(data)
-    df["x_component"]=X_embedded[:,0]
-    df["y_component"]=X_embedded[:,1]
+    df["reduced_component_x"]=X_embedded[:,0]
+    df["reduced_component_y"]=X_embedded[:,1]
     
     print('generating cluster plot...')
-    fig = px.scatter(df, x="x_component", y="y_component", color = "cluster", size_max=60)    
+    fig = px.scatter(df, x="reduced_component_x", y="reduced_component_y", color = "cluster", size_max=60)    
 
     print(f'----------- clustering runtime: {time.time() - start} seconds -----------')
     
@@ -517,8 +517,8 @@ def run(prompt=True):
 
         print('\nGoodbye!')
     else:
-        train_model()
-        # create_cluster()
+        # train_model()
+        create_cluster()
 
 if __name__ == '__main__':
     run(prompt=False) # set to True if user wants more control over which algo to run
