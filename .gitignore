@@ -128,3 +128,5 @@ index.html
 robots.txt
 
 .DS_Store
+server/model_objects/classifier/event_type/confusion_matrix.png
+server/model_objects/classifier/recall_probability/confusion_matrix.png
