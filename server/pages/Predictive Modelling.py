@@ -33,7 +33,11 @@ def fetch_device_names_all():
         return pd.DataFrame()
     try:
         query = """
-            select distinct openfda_device_name as device_name from device
+            select distinct openfda_device_name as device_name 
+            from device d
+            join device_event e
+                on e.event_id = d.event_id
+            where event_type is not null
         """
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(query)
@@ -46,7 +50,23 @@ def fetch_device_names_all():
         return pd.DataFrame()
     finally:
         conn.close()
+
+# convert data types to Arrow-compatible types
+def fix_dataframe(df):
+    df = df.copy()
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].astype(str)
+    for col in df.select_dtypes(include=['datetime64']).columns:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+    for col in df.select_dtypes(include=['float', 'int', 'bool']).columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    # df = df.fillna({
+    #     col: '' if dtype.kind in 'OSU' else 0  # String columns get empty string, numeric get 0
+    #     for col, dtype in df.dtypes.items()
+    # })
     
+    return df
+
 def model_data(st):   
     st.title("Predictive Modeling")
     
@@ -56,31 +76,39 @@ def model_data(st):
         2) the type of event that is most likely to occur. 
         This is helpful for manufacturers to determine the likelihood of a particular device to have issues, allowing them to take preventative measures and prioritize safety prior to market release. 
 
-        Both models were trained using XGBoost classifiers; the recall probability used a logistic regression implementation since it was a binary output, while the event types had multiple classes: Death, Injury, Malfunction, Unknown, and Other. The data was preprocessed based on feature type: 
+        Both models were trained using logistic regression classification models. Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Unknown, and Other - and it's possible for a device to be associated with multiple types. For this reason, a model was trained for each type, and the one with the highest probability is displayed. 
+        
+        The data was preprocessed based on feature type: 
         a) categorical features were one-hot encoded.
         b) numerical features were impute.
         c) text features were transformed to remove stopwords and vectorized using Term Frequency-Inverse Document Frequency (TF-IDF).
 
-        The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. 
+        The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. Note that the event type classifier's matrix represents the aggregate of all models. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. 
+            
     """)
     
-    col1, col2 = st.columns(2)
+    tab1, tab2 = st.tabs(['Recall Probability', 'Predicted Event Type'])
     path1 = 'model_objects/classifier/recall_probability'
     path2 = 'model_objects/classifier/event_type'
     
-    labels = {0: 'Death', 1: 'Injury', 2: 'Malfunction', 3: 'Unknown/Other', 4: 'Unknown/Other'}
+    labels = ['Death', 'Injury', 'Malfunction', 'Not Provided', 'Other']
 
-    # get accuracies
+    # get accuracies and show
     accuracy1, plt1 = a.get_model_accuracy(path1)
-    col1.metric('Test Accuracy for Recall Probability ', f'{accuracy1*100:.3f}%', border=True)
-
     accuracy2, plt2 = a.get_model_accuracy(path2)
-    col2.metric('Test Accuracy for Event Type Prediction ', f'{accuracy2*100:.3f}%', border=True)
-    
+
+    tab1.metric('Test Accuracy for Recall Probability', f'{accuracy1*100:.3f}%')
+
+    a1, a2, a3, a4, a5 = tab2.tabs(labels)
+    a1.metric('Test Accuracy', f'{accuracy2[0] * 100:.3f}%')
+    a2.metric('Test Accuracy', f'{accuracy2[1] * 100:.3f}%')
+    a3.metric('Test Accuracy', f'{accuracy2[2] * 100:.3f}%')
+    a4.metric('Test Accuracy', f'{accuracy2[3] * 100:.3f}%')
+    a5.metric('Test Accuracy', f'{accuracy2[4] * 100:.3f}%')
+
     # get confusion matrices
-    col1, col2 = st.columns(2)
-    col1.image(plt1)
-    col2.image(plt2)
+    tab1.image(plt1)
+    tab2.image(plt2)
 
     # add dropdown for device name search
     df_all = fetch_device_names_all()
@@ -96,27 +124,36 @@ def model_data(st):
         col1_1, col2_2 = st.columns(2)
 
         recall_probability, _, df = a.make_prediction(device_name, path1)
+
         event_class, event_probabilities, _ = a.make_prediction(device_name, path2)
-        event_type = labels.get(event_class, -1)
+        event_type = labels[event_class]
+
         if recall_probability != -1:
+            df = fix_dataframe(df)
             col1_1.metric('Probability of Recall ',  f'{recall_probability*100:.3f}%')
             # plot the table of feature values
             df = df.reset_index(drop=True)[['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'num_events']]         
             col1_1.dataframe(df.T) 
+        else: col1.text('No data found.')
 
         if event_type != -1:
             col2_2.metric('Predicted Event Type ', event_type)
             # plot the bar chart of probability distribution
+            
             prob_df = pd.DataFrame.from_dict(
                 {
-                'Death': [float(event_probabilities[0])],
-                'Injury': [float(event_probabilities[1])],
-                'Malfunction':[float(event_probabilities[2])],
-                'Unknown/Other': [float(event_probabilities[3] + event_probabilities[4])]
+                'Death': [float(event_probabilities[0][0][1])],
+                'Injury': [float(event_probabilities[1][0][1])],
+                'Malfunction':[float(event_probabilities[2][0][1])],
+                'Not Provided': [float(event_probabilities[3][0][1])],
+                'Other': [float(event_probabilities[4][0][1])]
                 }
             )
+            print(prob_df)
             prob_df = prob_df.reset_index(drop=True)
-            col2_2.bar_chart(prob_df, x_label='Probability Breakdown for Device')
+            col2_2.bar_chart(prob_df.T, x_label='Probability Breakdown for Device')
+        else: col2.text('No data found')
+
     else:
         st.info("No device names found.")
 

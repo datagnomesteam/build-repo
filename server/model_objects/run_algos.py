@@ -4,9 +4,18 @@ pip install scikit-learn nltk matplotlib cleanco levenshtein name_matching xgboo
 make sure "xgboost" directory exists in path
 """
 import pandas as pd
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+
 from sklearn.model_selection import cross_val_score, cross_validate, train_test_split
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from nltk.corpus import stopwords
+from sklearn.multioutput import MultiOutputClassifier
+import xgboost as xgb
+from sklearn.metrics import hamming_loss, f1_score
+from sklearn.preprocessing import MultiLabelBinarizer , OneHotEncoder
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from sklearn.cluster import KMeans
@@ -110,8 +119,8 @@ def preprocess_data(df, categorical, text, numerical, encoder=None, vectorizer=N
         # dimensionality reduction using pca and convert to df; tfidf returns sparse arrays
         if run_pca:
             if pca is None:
-                # keep 500 cols
-                pca = PCA(n_components=500)
+                # keep 1000 cols
+                pca = PCA(n_components=1000)
                 pca.fit(text_data_vectorized)
             text_data_pca = pd.DataFrame(pca.transform(text_data_vectorized))
         else:
@@ -124,7 +133,7 @@ def preprocess_data(df, categorical, text, numerical, encoder=None, vectorizer=N
     if numerical != []:
         numerical_data = df[numerical]
         for c in numerical:
-            numerical_data[c] = pd.to_numeric(numerical_data[c], errors='coerce').fillna(0)
+            numerical_data.loc[:, c] = pd.to_numeric(numerical_data[c], errors='coerce').fillna(0)
     else:
         numerical_data = pd.DataFrame()
 
@@ -226,8 +235,8 @@ def train_model():
         sns.heatmap(matrix, 
                     annot=True, 
                     cmap='PuRd',
-                    xticklabels=['Recall=False', 'Recall=True'],
-                    yticklabels=['Recall=False', 'Recall=True']
+                    xticklabels=['Pred=0', 'Pred=1'],
+                    yticklabels=['True=0', 'True=1']
                     )
         plt.xlabel('Predicted Value')
         plt.ylabel('True Value')
@@ -263,59 +272,58 @@ def train_model():
         numerical = []
         text = 'device_name' 
         data, encoder, vectorizer, pca = preprocess_data(df_device_event, categorical, text, numerical)
-        # label output using encoder
-        le = LabelEncoder()
-        y = le.fit_transform(df_device_event['event_type'])
-        # labels = {'Death': 0, 'Injury': 1, 'Malfunction': 2, 'No answer provided': 3, 'Other': 4}
-        # df_device_event['y'] = df_device_event['event_type'].replace(labels)
-        # # if any nulls, replace with 3 as default
-        # df_device_event['y'].fillna(3, inplace=True)
+        # # label output using encoder
+        # le = LabelEncoder()
+        # y = le.fit_transform(df_device_event['event_type'])
+
+        # y is the binary list of events      
+        y = pd.get_dummies(df_device_event['event_type'], prefix='y')
+        labels = [output.replace('y_', '') for output in y.columns]
 
         ########### train data ##############
         print('training...')
         # split into X and y
         X = data.values
-        # y = df_device_event['y']
-
         print(X.shape, y.shape)
+
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=62)
 
-        # # train via hyperparameter tuning
-        # param_grid = {
-        #     'max_depth': [2, 5, 10],
-        # }
-        # model = xgb.XGBClassifier() 
-
-        # # grid search
-        # grid_search = GridSearchCV(model, param_grid, scoring='accuracy')
-        # grid_search.fit(X, y)
-        
-        # # get best model accuracy
-        # model = grid_search.best_estimator_
-        # accuracy = grid_search.best_score_
-        # print(f'Best Accuracy in Grid: {accuracy * 100:.2f}')
-        
-        # train
-        model = xgb.XGBClassifier()
+        # train multioutput xgboost
+        model = MultiOutputClassifier(xgb.XGBClassifier(n_estimators=50, random_state=62, objective='binary:logistic', eval_metric='logloss'), n_jobs=-1 )
         model.fit(X_train, y_train)
-
-        # get accuracy
+    
+        # get accuracy foe each label
         predictions = model.predict(X_test)
-        accuracy = accuracy_score(y_test.astype(int), predictions)
-        print(f'Test Accuracy: {accuracy * 100:.2f}%')
+        accuracies = [accuracy_score(y_test.iloc[:, i], predictions[:, i]) for i in range(len(labels))]  # for each label
+        for i, accuracy in enumerate(accuracies):
+            print(f'Test Accuracy for {labels[i]}: {accuracy * 100:.4f}')
 
-        # generate confusion matrix
-        matrix = confusion_matrix(y_test, predictions, normalize='true')
+        # generate aggregated confusion matrix
+        y_true_flat = y_test.values.flatten()
+        y_pred_flat = predictions.flatten()
+        matrix = confusion_matrix(y_true_flat, y_pred_flat, normalize='true')
         fig = plt.figure()
         sns.heatmap(matrix, 
                     annot=True, 
                     cmap='PuRd',
-                    xticklabels=['Death', 'Injury', 'Malfunction', 'Unknown', 'Other'],
-                    yticklabels=['Death', 'Injury', 'Malfunction', 'Unknown', 'Other'],
+                    xticklabels=['Pred=0', 'Pred=1'],
+                    yticklabels=['True=0', 'True=1']
                     )
         plt.xlabel('Predicted Value')
         plt.ylabel('True Value')
         plt.title('Event Type - Confusion Matrix')
+
+        # matrix = confusion_matrix(y_test, predictions, normalize='true')
+        # fig = plt.figure()
+        # sns.heatmap(matrix, 
+        #             annot=True, 
+        #             cmap='PuRd',
+        #             xticklabels=['Death', 'Injury', 'Malfunction', 'Unknown', 'Other'],
+        #             yticklabels=['Death', 'Injury', 'Malfunction', 'Unknown', 'Other'],
+        #             )
+        # plt.xlabel('Predicted Value')
+        # plt.ylabel('True Value')
+        # plt.title('Event Type - Confusion Matrix')
 
         print(f'\n----------- XGBoost runtime: {time.time() - start} seconds -----------')
 
@@ -329,13 +337,11 @@ def train_model():
         with open('model_objects/classifier/event_type/encoder.pkl', 'wb') as f:
             pickle.dump(encoder, f)
         with open('model_objects/classifier/event_type/accuracy.pkl', 'wb') as f:
-            pickle.dump(accuracy, f)        
-        # with open('model_objects/classifier/event_type/confusion_matrix.pkl', 'wb') as f:
-        #     pickle.dump(fig, f)
+            pickle.dump(accuracies, f)     
         plt.savefig('model_objects/classifier/event_type/confusion_matrix.png')
 
     print('\nTRAINING RECALL PROBABILITY....')
-    train_recall_probability()
+    # train_recall_probability()
     
     print('\nTRAINING EVENT TYPE CLASSIFICATION....')
     train_event_classification()
@@ -352,8 +358,6 @@ def get_model_objects(path):
         encoder = pickle.load(f)
     with open(f'{path}/accuracy.pkl', 'rb') as f:
         accuracy = pickle.load(f)
-    # with open(f'{path}/confusion_matrix.pkl', 'rb') as f:
-    #     matrix = pickle.load(f)
     matrix = f'{path}/confusion_matrix.png'
     return model, encoder, vectorizer, pca, accuracy, matrix
 
@@ -361,8 +365,7 @@ def get_model_objects(path):
 def make_prediction(device_name, path):
     # get model params
     model, encoder, vectorizer, pca, _, _ = get_model_objects(path)
-    print('PREDICTION FROM: ', path)
-    print('device name: ', device_name)
+
     # depending on model type, get query and preprocess
     if 'recall_probability' in path:
         # get data from query
@@ -375,12 +378,14 @@ def make_prediction(device_name, path):
                 d.openfda_regulation_number as regulation_number,
                 case when c.submission_type_id = '2' then 1 else 0 end as pma_approval,
                 case when c.submission_type_id = '1' then 1 else 0 end as "510k_approval",
-                count(*) as num_events
+                count(e.event_id) as num_events
             from device d
             join device_event e
                 on e.event_id = d.event_id
-            join device_classification c 
+            left join device_classification c 
                 on c.device_name = d.openfda_device_name 
+            left join recall r
+                on r.openfda_device_name = d.openfda_device_name
             where device_name = '%s'
             group by
                 d.openfda_device_name,
@@ -417,7 +422,7 @@ def make_prediction(device_name, path):
             where openfda_device_name = '%s'
 
         """ % device_name
-        df = read_table('device_event', query)
+        df = read_table('device_event', query).drop_duplicates()
         # if no data found, return -1
         if df.empty:
             return -1, None, None
@@ -428,15 +433,17 @@ def make_prediction(device_name, path):
         X, encoder, vectorizer, pca = preprocess_data(df, [], text, [], encoder, vectorizer, pca)
 
         # make prediction 
-        prediction =  model.predict(X)
-        # if we have more than one row for device_name keep first prediction
-        return prediction[0], model.predict_proba(X)[0], df
+        predictions =  model.predict(X)
+        # we have 5 outputs, so get the value of highest probability
+        max_index = np.argmax(predictions[0])
+        print('PREDICTIONS', max_index)
+        return max_index, model.predict_proba(X), df        
 
 # get model accuracy and generate confusion  matrix to display
 def get_model_accuracy(path):
-    # get model accuracy 
-    _, _, _, _, accuracy, matrix_plt = get_model_objects(path)
-    return accuracy, matrix_plt
+    # get model accuracy and matrix
+    _, _, _, _, accuracy, matrix = get_model_objects(path)
+    return accuracy, matrix
 
 # train and save cluster
 def create_cluster():
