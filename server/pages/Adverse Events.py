@@ -106,6 +106,7 @@ def fetch_events(filters=None):
                 where_clauses.append('de.event_type ILIKE %s')
                 params.append(f'%{filters["event_type"]}%')
 
+
         if where_clauses:
             query += ' WHERE ' + ' AND '.join(where_clauses)
         
@@ -116,6 +117,7 @@ def fetch_events(filters=None):
             results = cur.fetchall()
 
         df = pd.DataFrame(results)
+        #df = df[pd.to_datetime(df["date_of_event"]) <= pd.Timestamp('2023-12-31')]
 
         return df
     
@@ -204,9 +206,9 @@ def main():
         # user selects the 'From' date
         date_from = st.date_input(
             "From",
-            value=max_date - timedelta(days=365*3),
+            value=min_date,
             min_value=min_date,
-            max_value=max_date - timedelta(days=365*3)
+            max_value=max_date
         )
 
     # calculate the minimum 'To' date (3 years after 'From' date)
@@ -218,7 +220,7 @@ def main():
         # user selects the 'to' date with adjusted constraints
         date_to = st.date_input(
             "To",
-            value=max_date,
+            value=max_date - timedelta(days=365*1.5),
             min_value=min_to_date,
             max_value=max_date
         )
@@ -249,9 +251,9 @@ def main():
     else:
         filters = {
             'date_from': min_date,
-            'date_to': max_date
+            'date_to': date_to
         }
-        df = fetch_events()
+        df = fetch_events(filters=filters)
     
     # display data and visualizations
     if not df.empty:
@@ -304,8 +306,8 @@ def main():
             st.plotly_chart(fig2)
         
         # time series chart
-        monthly_counts = build_forecast_data(df=df, date_field='date_of_event', freq='M')
-        forecast_output = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='M')
+        monthly_counts = build_forecast_data(df=df, date_field='date_of_event', freq='ME')
+        forecast_output = forecast(counts_df=monthly_counts, date_field='date_of_event', freq='ME')
         fig3 = plot_timeseries(df=forecast_output['df'], forecasted=forecast_output['forecasted'], rmse=forecast_output['rmse'], date_field='date_of_event', page='Events')
         st.plotly_chart(fig3)
         
