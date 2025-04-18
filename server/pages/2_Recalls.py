@@ -167,7 +167,7 @@ def main():
         # user selects the 'to' date with adjusted constraints
         date_to = st.date_input(
             "To",
-            value=max_date,
+            value=max_date - timedelta(days=365*1.5),
             min_value=min_to_date,
             max_value=max_date
         )
@@ -196,6 +196,10 @@ def main():
         
         df = fetch_recalls(filters)
     else:
+        filters = {
+            'date_from': min_date,
+            'date_to': date_to
+        }
         df = fetch_recalls()
     
     # display data and visualizations
