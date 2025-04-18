@@ -69,8 +69,11 @@ def fix_dataframe(df):
 
 def model_data(st):   
     st.title("Predictive Modeling")
-    
-    st.text(f"""
+    col1, col2 = st.columns(2)
+    col1.text('')
+    col1.text('')
+
+    col1.write(f"""
         This page allows a user to select a device associated to an adverse event and predict 
         1) the probability the same device having a recall and 
         2) the type of event that is most likely to occur. 
@@ -87,7 +90,7 @@ def model_data(st):
             
     """)
     
-    tab1, tab2 = st.tabs(['Recall Probability', 'Predicted Event Type'])
+    tab1, tab2 = col2.tabs(['Recall Probability', 'Predicted Event Type'])
     path1 = 'model_objects/classifier/recall_probability'
     path2 = 'model_objects/classifier/event_type'
     
@@ -134,7 +137,7 @@ def model_data(st):
             # plot the table of feature values
             df = df.reset_index(drop=True)[['product_code', 'device_class', 'regulation_number', 'pma_approval', '510k_approval', 'num_events']]         
             col1_1.dataframe(df.T) 
-        else: col1.text('No data found.')
+        else: col1_1.text('No data found.')
 
         if event_type != -1:
             col2_2.metric('Predicted Event Type ', event_type)
@@ -152,7 +155,7 @@ def model_data(st):
             print(prob_df)
             prob_df = prob_df.reset_index(drop=True)
             col2_2.bar_chart(prob_df.T, x_label='Probability Breakdown for Device')
-        else: col2.text('No data found')
+        else: col_2.text('No data found')
 
     else:
         st.info("No device names found.")

@@ -119,8 +119,8 @@ def preprocess_data(df, categorical, text, numerical, encoder=None, vectorizer=N
         # dimensionality reduction using pca and convert to df; tfidf returns sparse arrays
         if run_pca:
             if pca is None:
-                # keep 1000 cols
-                pca = PCA(n_components=1000)
+                # keep 500 cols
+                pca = PCA(n_components=500)
                 pca.fit(text_data_vectorized)
             text_data_pca = pd.DataFrame(pca.transform(text_data_vectorized))
         else:
@@ -341,7 +341,7 @@ def train_model():
         plt.savefig('model_objects/classifier/event_type/confusion_matrix.png')
 
     print('\nTRAINING RECALL PROBABILITY....')
-    # train_recall_probability()
+    train_recall_probability()
     
     print('\nTRAINING EVENT TYPE CLASSIFICATION....')
     train_event_classification()
@@ -367,7 +367,7 @@ def make_prediction(device_name, path):
     model, encoder, vectorizer, pca, _, _ = get_model_objects(path)
 
     # depending on model type, get query and preprocess
-    if 'recall_probability' in path:
+    if 'recall' in path:
         # get data from query
         query = """
             select distinct 
@@ -382,11 +382,9 @@ def make_prediction(device_name, path):
             from device d
             join device_event e
                 on e.event_id = d.event_id
-            left join device_classification c 
+            join device_classification c 
                 on c.device_name = d.openfda_device_name 
-            left join recall r
-                on r.openfda_device_name = d.openfda_device_name
-            where device_name = '%s'
+            where d.openfda_device_name = '%s'
             group by
                 d.openfda_device_name,
                 c.product_code,
@@ -394,10 +392,9 @@ def make_prediction(device_name, path):
                 c.device_class,
                 d.openfda_regulation_number,
                 case when c.submission_type_id = '2' then 1 else 0 end,
-                case when c.submission_type_id = '1' then 1 else 0 end,
-                d.openfda_device_name
+                case when c.submission_type_id = '1' then 1 else 0 end
         """ % device_name
-        df = read_table('device_event', query)
+        df = read_table('device_event', query).drop_duplicates()
         # if no data found, return -1
         if df.empty:
             return -1, None, None
