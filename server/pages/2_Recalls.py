@@ -73,57 +73,6 @@ def fetch_recalls(filters=None):
     finally:
         conn.close()
 
-# get statistics
-def get_recall_stats():
-    conn = get_database_connection()
-    if not conn:
-        return {}
-    
-    try:
-        stats = {}
-
-        # get recall counts by device_class
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT device_class, COUNT(*) as count 
-                FROM recall 
-                GROUP BY device_class 
-                ORDER BY device_class
-            """)
-            stats['class_counts'] = cur.fetchall()
-               
-        # top recalling_firm
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT recalling_firm, COUNT(*) as count 
-                FROM recall 
-                GROUP BY recalling_firm 
-                ORDER BY count DESC 
-                LIMIT 10
-            """)
-            stats['top_recalling_firm'] = cur.fetchall()
-        
-        # recent trend (last 12 months)
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT 
-                    DATE_TRUNC('month', event_date_posted) as month, 
-                    COUNT(*) as count 
-                FROM recall 
-                WHERE event_date_posted >= NOW() - INTERVAL '1 year' 
-                GROUP BY month 
-                ORDER BY month
-            """)
-            stats['monthly_trend'] = cur.fetchall()
-            
-        return stats
-    
-    except Exception as e:
-        st.error(f"Error fetching stats: {e}")
-        return {}
-    finally:
-        conn.close()
-
 # app layout and functionality
 def main():
     st.set_page_config(
@@ -136,7 +85,7 @@ def main():
     st.text("This dashboard takes a closer look at medical device recalls. On the left sidebar, the user may apply a variety of filters on the underlying data. Visuals will update to reflect the filtered data.")
     st.text("At the top of the page, to the right of the sidebar, recalls are summarized are broken down by type and manufacturer.")
     st.text("In the middle of the page, recalls are displayed over time, and the top 100 rows from the underlying recall data is displayed in a tabular view. Holt-Winters exponential smoothing is implemented to forecast recalls beyond the specified time window. Major policy changes regarding medical devices are visualized along the X-axis.")
-    st.text("At the bottom of the page, events are displayed geographically. @Chris to fill in.")
+    st.text("At the bottom of the page, events are displayed geographically. This graph shows the locations of the manufacturers that produced the recalled devices. The FDA data did not provide the address of events. To operate the map, you can identify hotspots with the default zoom level. From there you can zoom in using the slider to see a more granular view.")
     
     # sidebar filters
     st.sidebar.header("Filters")
@@ -145,7 +94,7 @@ def main():
     # date range filter
     # define the minimum and maximum selectable dates
     min_date = date(1945, 1, 1)
-    max_date = date(2025, 1, 1)
+    max_date = date(2025, 1, 31)
 
     col1, col2 = st.sidebar.columns(2)
 
@@ -153,22 +102,17 @@ def main():
         # user selects the 'From' date
         date_from = st.date_input(
             "From",
-            value=min_date,
+            value=date(2000, 1, 1),
             min_value=min_date,
             max_value=max_date
         )
-
-    # calculate the minimum 'To' date (3 years after 'From' date)
-    min_to_date = max_date
-    if date_from + relativedelta(years=3) <= max_date:
-        min_to_date = date_from + relativedelta(years=3)
 
     with col2:
         # user selects the 'to' date with adjusted constraints
         date_to = st.date_input(
             "To",
-            value=max_date - timedelta(days=365*1.5),
-            min_value=min_to_date,
+            value=date(2024, 5, 31),
+            min_value=min_date,
             max_value=max_date
         )
     
@@ -209,16 +153,10 @@ def main():
         
         with metrics_col1:
             st.metric("Total Recalls", df.shape[0])
-                
-        # with metrics_col2:
-        #     class_counts = df['root_cause_description'].value_counts()
-        #     class_i_count = class_counts.get('Class I', 0)
-        #     st.metric("Class I Recalls (Highest Risk)", class_i_count)
 
-            
         with metrics_col3:
-            recent_recalls = df[df['event_date_posted'] >= (datetime.date(datetime.now()) - timedelta(days=30))].shape[0]
-            st.metric("Recalls in Last 30 Days", recent_recalls)
+            recent_recalls = df[df['event_date_posted'] >= (date_to - timedelta(days=30))].shape[0]
+            st.metric("Recalls in Previous 30 Days", recent_recalls)
         
         # visualizations
         st.subheader("Recall Statistics")

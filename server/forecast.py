@@ -8,7 +8,6 @@ from sklearn.metrics import mean_squared_error
 
 def build_forecast_data(df, date_field, freq):
     df[date_field] = pd.to_datetime(df[date_field], errors='coerce')
-    df = df[df[date_field] >= pd.Timestamp('1902-01-01')]
     counts = df.groupby(pd.Grouper(key=date_field, freq=freq), dropna=True).size().reset_index(name='count')
     counts = counts.sort_values(date_field)
     counts.set_index(date_field, inplace=True)
@@ -17,14 +16,17 @@ def build_forecast_data(df, date_field, freq):
 
 
 def forecast(counts_df, date_field, freq):
-    holdout_size = round(len(counts_df) * .20) # holdout 6 months for validation model
+    holdout_size = round(len(counts_df) * .10) # holdout 6 months for validation
     seasonal_periods = 12 # 12 month intervals
-    forecast_periods = holdout_size + 24 # forecast 24 months past available data
+    forecast_periods = holdout_size + 24 # forecast 24 months past held out data
     # fit the Exponential Smoothing Model
     try:
         train = counts_df.iloc[:-holdout_size]
         test = counts_df.iloc[-holdout_size:]
-        model = ExponentialSmoothing(train['count'], trend='add', seasonal='mul', seasonal_periods=seasonal_periods)
+        if (counts_df['count'] < 1).any():
+            model = ExponentialSmoothing(train['count'], trend='add', seasonal='add', seasonal_periods=seasonal_periods)
+        else:
+            model = ExponentialSmoothing(train['count'], trend='add', seasonal='mul', seasonal_periods=seasonal_periods)
     except ValueError as e:
         print(e)
         combined_df = counts_df.reset_index()
