@@ -76,19 +76,22 @@ def model_data(st):
 
     col1.write(f"""
         This section allows a user to select a device associated with an adverse event and predict 
-        1) The probability the same device having a recall and 
-        2) The type of event that is most likely to occur. 
+        1. the probability the same device will have a recall and
+        2. and the type of event which is most likely to occur.    
                
-        This is helpful for manufacturers to determine the likelihood of a particular device to have issues, allowing them to take preventative measures and prioritize safety prior to market release. 
+        This is helpful for manufacturers to determine the likelihood of a particular device has issues, allowing them to take preventive measures and prioritize safety prior to market release.
 
-        Both models were trained using XGBoost implementations of Logistic Regression, since it is capable of handling complex features, categorical variable encoding, and null values, as opposed to traditional Logistic Regrssion. Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Not Provided, and Other - and it's possible for a device to be associated with multiple types. For this reason, a model was trained for each event type and wrapped using Scikit-Learn's MultiOutputClassifier, and the result with the highest probability is displayed. 
-        
+        Both models were trained using XGBoost implementations of Logistic Regression, since it is capable of handling complex features, categorical variable encoding, and null values, as opposed to traditional Logistic Regression. 
+        Recall probability is a binary output; however, event types had multiple classes - Death, Injury, Malfunction, Not Provided, and Other - and it's possible for a device to be associated with multiple types. 
+        For this reason, a model was trained for each event type and wrapped using Scikit-Learn's MultiOutputClassifier, and the result with the highest probability is displayed. 
+        The accuracy and F1-scores are also portrayed.
+               
         The data was preprocessed based on feature type: 
         a) Categorical features were one-hot encoded.
         b) Numerical features were imputed.
         c) Text features were transformed to remove stopwords and vectorized using Term Frequency-Inverse Document Frequency (TF-IDF).
                
-        Principal Component Analysis (PCA) was used for dimensionality reduction. The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. Note that the event type classifier's matrix represents the aggregate of all models. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. Select the tabs on the right to toggle between the two models.
+        Principal Component Analysis (PCA) was used for dimensionality reduction. The models were trained on 80% of the input data, which was gathered from the device event and recall related tables, and the remaining 20% is used to determine the test accuracies and confusion matrices shown below. Note that the event type classifier's matrix and F1 scores represent the aggregate of all models. The features included device name, approval type (PMA vs 510k), number of adverse events, and device classification. Select the tabs on the right to toggle between the two models.
                
         Select a device name below to generate a prediction for recall probability and most likely event type.
             
@@ -101,17 +104,29 @@ def model_data(st):
     labels = ['Death', 'Injury', 'Malfunction', 'Not Provided', 'Other']
 
     # get accuracies and show
-    accuracy1, plt1 = a.get_model_accuracy(path1)
-    accuracy2, plt2 = a.get_model_accuracy(path2)
+    metrics1, plt1 = a.get_model_accuracy(path1)
+    metrics2, plt2 = a.get_model_accuracy(path2)
+    accuracy1, f1_1 = metrics1
+    accuracy2, f1_2 = metrics2
 
     tab1.metric('Test Accuracy for Recall Probability', f'{accuracy1*100:.3f}%')
+    tab1.metric('F1 Score', f'{f1_1:.3f}')
 
     a1, a2, a3, a4, a5 = tab2.tabs(labels)
     a1.metric('Test Accuracy', f'{accuracy2[0] * 100:.3f}%')
+    a1.metric('F1 Score', f'{f1_2:.3f}')
+
     a2.metric('Test Accuracy', f'{accuracy2[1] * 100:.3f}%')
+    a2.metric('F1 Score', f'{f1_2:.3f}')
+
     a3.metric('Test Accuracy', f'{accuracy2[2] * 100:.3f}%')
+    a3.metric('F1 Score', f'{f1_2:.3f}')
+
     a4.metric('Test Accuracy', f'{accuracy2[3] * 100:.3f}%')
+    a4.metric('F1 Score', f'{f1_2:.3f}')
+
     a5.metric('Test Accuracy', f'{accuracy2[4] * 100:.3f}%')
+    a5.metric('F1 Score', f'{f1_2:.3f}')
 
     # get confusion matrices
     tab1.image(plt1)

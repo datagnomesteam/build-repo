@@ -24,7 +24,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN, HDBSCAN
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -202,16 +202,17 @@ def train_model():
         X = data
         y = event_counts.iloc[:, -1]
         print(X.shape, y.shape)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=62)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=62)
 
         # train
         model = xgb.XGBClassifier(n_estimators=50, random_state=62, objective='binary:logistic', eval_metric='logloss') 
         model.fit(X_train, y_train)
         
-        # get accuracy
+        # get accuracy and f1 score
         predictions = model.predict(X_test)
         accuracy = accuracy_score(y_test.astype(int), predictions)
-        print(f'Test Accuracy: {accuracy * 100:.2f}%')
+        f1 = f1_score(y_test, predictions)
+        print(f'Test Accuracy anf F1: {accuracy * 100:.2f}% | {f1}')
 
         # generate confusion matrix
         matrix = confusion_matrix(y_test, predictions, normalize='true')
@@ -238,7 +239,7 @@ def train_model():
         with open('model_objects/classifier/recall_probability/encoder.pkl', 'wb') as f:
             pickle.dump(encoder, f)
         with open('model_objects/classifier/recall_probability/accuracy.pkl', 'wb') as f:
-            pickle.dump(accuracy, f)
+            pickle.dump((accuracy, f1), f)
         # with open('model_objects/classifier/recall_probability/confusion_matrix.pkl', 'wb') as f:
         #     pickle.dump(fig, f)
         plt.savefig('model_objects/classifier/recall_probability/confusion_matrix.png')
@@ -270,7 +271,7 @@ def train_model():
         X = data.values
         print(X.shape, y.shape)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=62)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=62)
 
         # train multioutput xgboost
         model = MultiOutputClassifier(xgb.XGBClassifier(n_estimators=50, random_state=62, objective='binary:logistic', eval_metric='logloss'), n_jobs=-1 )
@@ -279,8 +280,10 @@ def train_model():
         # get accuracy foe each label
         predictions = model.predict(X_test)
         accuracies = [accuracy_score(y_test.iloc[:, i], predictions[:, i]) for i in range(len(labels))]  # for each label
+        f1 = f1_score(y_test, predictions, average='weighted') # [f1_score(y_test[:,i], predictions[:, i]) for i in range(len(labels))]
         for i, accuracy in enumerate(accuracies):
-            print(f'Test Accuracy for {labels[i]}: {accuracy * 100:.4f}')
+            # f1 = f1s[i]
+            print(f'Test Accuracy anf F1: {accuracy * 100:.2f}% | {f1}')
 
         # generate aggregated confusion matrix
         y_true_flat = y_test.values.flatten()
@@ -321,7 +324,7 @@ def train_model():
         with open('model_objects/classifier/event_type/encoder.pkl', 'wb') as f:
             pickle.dump(encoder, f)
         with open('model_objects/classifier/event_type/accuracy.pkl', 'wb') as f:
-            pickle.dump(accuracies, f)     
+            pickle.dump((accuracies, f1), f)     
         plt.savefig('model_objects/classifier/event_type/confusion_matrix.png')
 
     print('\nTRAINING RECALL PROBABILITY....')
@@ -517,8 +520,10 @@ def run(prompt=True):
 
         print('\nGoodbye!')
     else:
-        # train_model()
+        train_model()
+        print('XGBoost model saved!')
         create_cluster()
+        print('Cluster saved!')
 
 if __name__ == '__main__':
     run(prompt=False) # set to True if user wants more control over which algo to run
