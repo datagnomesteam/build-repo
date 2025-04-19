@@ -153,9 +153,9 @@ def main():
         # user selects the 'From' date
         date_from = st.date_input(
             "From",
-            value=max_date - timedelta(days=365*3),
+            value=min_date,
             min_value=min_date,
-            max_value=max_date - timedelta(days=365*3)
+            max_value=max_date
         )
 
     # calculate the minimum 'To' date (3 years after 'From' date)
