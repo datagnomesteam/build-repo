@@ -28,3 +28,7 @@ pg_dump -U [user] -d [database] -h [host] | zstd -z -13 -o pg.zst
 ```
 zstd --stdout -d pg.zst | psql --dbname=[name] -U [user]
 ```
+
+
+### Dockerfile.big 
+This is for building the container with the full-size database. This makes the local build bigger but the resulting container smaller due to skipping a file copy
